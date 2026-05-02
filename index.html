@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>浸水深さWebARシミュレーション</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- AR.js -->
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #000;
+    }
+
+    #ui {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 16px;
+      z-index: 20;
+      background: rgba(0, 20, 35, 0.72);
+      color: white;
+      padding: 14px;
+      border-radius: 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+
+    #ui h1 {
+      font-size: 16px;
+      margin: 0 0 8px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    label {
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    #heightValue {
+      font-weight: bold;
+      min-width: 58px;
+      text-align: right;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #00a8ff;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    button.off {
+      background: #555;
+    }
+
+    #guide {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      color: white;
+      background: rgba(0,0,0,0.45);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /*
+      水面より下に入った時の水色フィルター。
+      試作版では「水中表示」ボタンでON/OFF。
+    */
+    #underwaterFilter {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(100, 210, 255, 0.10),
+          rgba(50, 180, 230, 0.32)
+        );
+      mix-blend-mode: screen;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+
+    #underwaterFilter.active {
+      opacity: 1;
+    }
+
+    /*
+      水中の霞み感。
+    */
+    #underwaterMist {
+      position: fixed;
+      inset: 0;
+      z-index: 11;
+      pointer-events: none;
+      background: rgba(120, 220, 255, 0.12);
+      backdrop-filter: blur(1.6px) saturate(1.15);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+
+    #underwaterMist.active {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="guide">
+    スマホを周囲に向けてください。<br>
+    スライダーで浸水高さを変更すると、その高さに半透明の水面が表示されます。
+  </div>
+
+  <div id="underwaterFilter"></div>
+  <div id="underwaterMist"></div>
+
+  <div id="ui">
+    <h1>浸水深さシミュレーション</h1>
+
+    <div class="row">
+      <label for="heightSlider">浸水高さ</label>
+      <input id="heightSlider" type="range" min="0" max="5" step="0.1" value="1.0">
+      <div id="heightValue">1.0m</div>
+    </div>
+
+    <div class="row">
+      <button id="underwaterBtn" class="off">水中表示 OFF</button>
+      <button id="resetBtn">水面を正面に配置</button>
+    </div>
+  </div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="alpha: true; antialias: true; colorManagement: true;"
+    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+  >
+
+    <!-- カメラ -->
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+
+    <!-- 広い水面 -->
+    <a-entity
+      id="water"
+      position="0 1 0"
+      rotation="-90 0 0"
+      geometry="
+        primitive: plane;
+        width: 220;
+        height: 220;
+        segmentsWidth: 120;
+        segmentsHeight: 120;
+      "
+      material="
+        color: #48c8ff;
+        transparent: true;
+        opacity: 0.42;
+        roughness: 0.18;
+        metalness: 0.0;
+        side: double;
+      "
+      wave-water
+    ></a-entity>
+
+    <!-- 水面の光っぽい薄い板。少し上に重ねる -->
+    <a-entity
+      id="waterHighlight"
+      position="0 1.015 0"
+      rotation="-90 0 0"
+      geometry="
+        primitive: plane;
+        width: 220;
+        height: 220;
+        segmentsWidth: 40;
+        segmentsHeight: 40;
+      "
+      material="
+        color: #ffffff;
+        transparent: true;
+        opacity: 0.10;
+        side: double;
+      "
+    ></a-entity>
+
+    <!-- 高さ目安の縦ライン -->
+    <a-entity id="heightMarker" position="-1.2 0.5 -3">
+      <a-cylinder
+        radius="0.015"
+        height="1"
+        color="#ffffff"
+        opacity="0.7"
+        transparent="true"
+        position="0 0.5 0"
+      ></a-cylinder>
+
+      <a-text
+        id="heightText"
+        value="1.0m"
+        color="#ffffff"
+        align="center"
+        width="2.5"
+        position="0 1.15 0"
+        look-at-camera
+      ></a-text>
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    /*
+      水面を少し波立たせるコンポーネント
+    */
+    AFRAME.registerComponent("wave-water", {
+      schema: {
+        amplitude: { type: "number", default: 0.055 },
+        speed: { type: "number", default: 0.0016 },
+        frequency: { type: "number", default: 0.18 }
+      },
+
+      init: function () {
+        this.mesh = this.el.getObject3D("mesh");
+        this.ready = false;
+
+        this.el.addEventListener("loaded", () => {
+          this.mesh = this.el.getObject3D("mesh");
+          if (!this.mesh || !this.mesh.geometry) return;
+
+          const position = this.mesh.geometry.attributes.position;
+          this.base = [];
+
+          for (let i = 0; i < position.count; i++) {
+            this.base.push({
+              x: position.getX(i),
+              y: position.getY(i),
+              z: position.getZ(i)
+            });
+          }
+
+          this.ready = true;
+        });
+      },
+
+      tick: function (time) {
+        if (!this.ready || !this.mesh) return;
+
+        const geometry = this.mesh.geometry;
+        const position = geometry.attributes.position;
+
+        const amp = this.data.amplitude;
+        const freq = this.data.frequency;
+        const speed = this.data.speed;
+
+        for (let i = 0; i < position.count; i++) {
+          const p = this.base[i];
+
+          const wave1 = Math.sin((p.x * freq) + time * speed);
+          const wave2 = Math.cos((p.y * freq * 1.3) + time * speed * 0.8);
+          const z = (wave1 + wave2) * amp;
+
+          position.setZ(i, z);
+        }
+
+        position.needsUpdate = true;
+        geometry.computeVertexNormals();
+      }
+    });
+
+    /*
+      テキストが常にカメラを向く
+    */
+    AFRAME.registerComponent("look-at-camera", {
+      tick: function () {
+        const camera = document.querySelector("[camera]");
+        if (!camera) return;
+
+        const camObj = camera.object3D;
+        this.el.object3D.lookAt(camObj.position);
+      }
+    });
+
+    const heightSlider = document.getElementById("heightSlider");
+    const heightValue = document.getElementById("heightValue");
+    const water = document.getElementById("water");
+    const waterHighlight = document.getElementById("waterHighlight");
+    const heightMarker = document.getElementById("heightMarker");
+    const heightText = document.getElementById("heightText");
+
+    const underwaterBtn = document.getElementById("underwaterBtn");
+    const underwaterFilter = document.getElementById("underwaterFilter");
+    const underwaterMist = document.getElementById("underwaterMist");
+    const resetBtn = document.getElementById("resetBtn");
+
+    let underwater = false;
+
+    function updateFloodHeight() {
+      const h = parseFloat(heightSlider.value);
+
+      heightValue.textContent = h.toFixed(1) + "m";
+
+      water.setAttribute("position", `0 ${h} 0`);
+      waterHighlight.setAttribute("position", `0 ${h + 0.015} 0`);
+
+      heightMarker.setAttribute("position", `-1.2 ${h / 2} -3`);
+      heightMarker.querySelector("a-cylinder").setAttribute("height", h);
+      heightMarker.querySelector("a-cylinder").setAttribute("position", `0 ${h / 2} 0`);
+      heightText.setAttribute("position", `0 ${h + 0.18} 0`);
+      heightText.setAttribute("value", h.toFixed(1) + "m");
+    }
+
+    heightSlider.addEventListener("input", updateFloodHeight);
+
+    underwaterBtn.addEventListener("click", () => {
+      underwater = !underwater;
+
+      underwaterFilter.classList.toggle("active", underwater);
+      underwaterMist.classList.toggle("active", underwater);
+
+      underwaterBtn.textContent = underwater ? "水中表示 ON" : "水中表示 OFF";
+      underwaterBtn.classList.toggle("off", !underwater);
+    });
+
+    /*
+      水面をカメラ正面側に見えるように再配置する簡易処理。
+      本格版では、GPS位置・方位・床検出・マーカーなどで基準点を決める。
+    */
+    resetBtn.addEventListener("click", () => {
+      water.setAttribute("rotation", "-90 0 0");
+      waterHighlight.setAttribute("rotation", "-90 0 0");
+    });
+
+    updateFloodHeight();
+  </script>
+</body>
+</html>
