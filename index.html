@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR - 2 Point Calibration</title>
+  <title>Flood Depth WebAR - Recovery</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
   <style>
@@ -22,25 +22,23 @@
       width: 100vw;
       height: 100vh;
       object-fit: cover;
-      background: #000;
+      background: #111;
       z-index: 1;
     }
 
-    #globalUnderwater {
+    #errorBox {
       position: fixed;
-      inset: 0;
-      z-index: 4;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.18s ease-out;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(210, 245, 255, 0.02),
-          rgba(120, 220, 255, 0.10) 45%,
-          rgba(70, 190, 245, 0.16) 100%
-        );
-      backdrop-filter: blur(0.9px) saturate(1.05);
+      left: 10px;
+      right: 10px;
+      top: 10px;
+      z-index: 999;
+      display: none;
+      background: rgba(180, 0, 0, 0.86);
+      color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      white-space: pre-wrap;
     }
 
     #underwaterArea {
@@ -51,150 +49,152 @@
       bottom: 0;
       z-index: 5;
       pointer-events: none;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(120, 220, 255, 0.22),
+          rgba(50, 180, 235, 0.42),
+          rgba(10, 110, 180, 0.56)
+        );
+      backdrop-filter: blur(1px) saturate(1.08);
       overflow: hidden;
       transition: top 0.12s ease-out;
     }
 
-    #underwaterColor {
+    #underwaterArea::before {
+      content: "";
       position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(120, 220, 255, 0.18) 0%,
-          rgba(85, 205, 245, 0.28) 30%,
-          rgba(40, 170, 230, 0.42) 70%,
-          rgba(10, 110, 180, 0.52) 100%
-        );
-      backdrop-filter: blur(1px) saturate(1.08);
-    }
-
-    #underwaterMist {
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(
-          ellipse at 50% 0%,
-          rgba(255,255,255,0.16) 0%,
-          rgba(255,255,255,0.00) 55%
-        ),
-        linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.06) 0%,
-          rgba(255,255,255,0.00) 42%
-        );
-      opacity: 0.85;
-    }
-
-    #causticsCanvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
+      inset: -20%;
       opacity: 0.35;
-      mix-blend-mode: screen;
+      background:
+        repeating-linear-gradient(
+          160deg,
+          rgba(255,255,255,0) 0px,
+          rgba(255,255,255,0) 28px,
+          rgba(255,255,255,0.14) 34px,
+          rgba(255,255,255,0) 48px
+        );
+      animation: causticsMove 7s linear infinite;
     }
 
     #waterSurfaceBand {
       position: fixed;
       left: 0;
       right: 0;
-      top: calc(60% - 44px);
-      height: 88px;
+      height: 86px;
+      top: calc(60% - 43px);
       z-index: 8;
       pointer-events: none;
       overflow: hidden;
       transition: top 0.12s ease-out;
     }
 
-    #surfaceGlass {
+    #waterSurfaceBand::before {
+      content: "";
       position: absolute;
       left: 0;
       right: 0;
-      top: 10px;
-      bottom: 10px;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.04) 0%,
-          rgba(180, 235, 255, 0.12) 35%,
-          rgba(80, 190, 235, 0.10) 100%
-        );
-      opacity: 0.95;
-    }
-
-    #surfaceHighlight {
-      position: absolute;
-      left: 10%;
-      width: 80%;
-      top: 8px;
-      height: 60px;
+      top: 22px;
+      height: 42px;
       background:
         radial-gradient(
-          ellipse at 50% 60%,
-          rgba(255,255,255,0.42) 0%,
-          rgba(255,255,255,0.14) 22%,
-          rgba(255,255,255,0.00) 60%
+          ellipse at 50% 45%,
+          rgba(255,255,255,0.36),
+          rgba(255,255,255,0.12) 32%,
+          rgba(255,255,255,0) 68%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.08),
+          rgba(120,220,255,0.16),
+          rgba(80,190,235,0.08)
         );
-      opacity: 0.82;
-      filter: blur(1px);
+      filter: blur(0.4px);
     }
 
-    #waterlineCanvas {
+    #waterSurfaceBand::after {
+      content: "";
       position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* 床0mライン */
-    #floorLine {
-      position: fixed;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: rgba(255, 230, 80, 0.85);
-      z-index: 16;
-      pointer-events: none;
-      box-shadow: 0 0 9px rgba(255, 230, 80, 0.9);
-    }
-
-    #floorLabel {
-      position: fixed;
-      left: 12px;
-      z-index: 17;
-      pointer-events: none;
-      color: #fff4a0;
-      background: rgba(0,0,0,0.48);
+      left: -8%;
+      right: -8%;
+      top: 41px;
+      height: 5px;
+      background: rgba(245,255,255,0.96);
       border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 11px;
-      font-weight: 700;
+      box-shadow:
+        0 0 12px rgba(255,255,255,0.95),
+        0 5px 18px rgba(150,230,255,0.86);
+      animation: waterLineMove 3s ease-in-out infinite;
     }
 
-    /* 2m基準ライン */
+    .waveA,
+    .waveB {
+      position: absolute;
+      left: -12%;
+      right: -12%;
+      height: 34px;
+      opacity: 0.76;
+    }
+
+    .waveA {
+      top: 27px;
+      background:
+        radial-gradient(ellipse at 10% 55%, rgba(255,255,255,0.72), rgba(255,255,255,0) 58%),
+        radial-gradient(ellipse at 30% 42%, rgba(255,255,255,0.52), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 55% 58%, rgba(255,255,255,0.68), rgba(255,255,255,0) 58%),
+        radial-gradient(ellipse at 80% 48%, rgba(255,255,255,0.64), rgba(255,255,255,0) 60%);
+      animation: waveMoveA 4s ease-in-out infinite;
+    }
+
+    .waveB {
+      top: 36px;
+      opacity: 0.42;
+      background:
+        radial-gradient(ellipse at 18% 50%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 48% 48%, rgba(255,255,255,0.42), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 74% 52%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%);
+      animation: waveMoveB 5s ease-in-out infinite;
+    }
+
+    #floorLine,
     #refLine {
       position: fixed;
       left: 0;
       right: 0;
       height: 2px;
-      background: rgba(90, 255, 170, 0.85);
       z-index: 16;
       pointer-events: none;
-      box-shadow: 0 0 9px rgba(90, 255, 170, 0.9);
     }
 
+    #floorLine {
+      background: rgba(255, 230, 80, 0.88);
+      box-shadow: 0 0 8px rgba(255,230,80,0.9);
+    }
+
+    #refLine {
+      background: rgba(80, 255, 170, 0.88);
+      box-shadow: 0 0 8px rgba(80,255,170,0.9);
+    }
+
+    #floorLabel,
     #refLabel {
       position: fixed;
       left: 12px;
       z-index: 17;
       pointer-events: none;
-      color: #a8ffd0;
       background: rgba(0,0,0,0.48);
       border-radius: 999px;
       padding: 4px 8px;
       font-size: 11px;
       font-weight: 700;
+    }
+
+    #floorLabel {
+      color: #fff4a0;
+    }
+
+    #refLabel {
+      color: #a8ffd0;
     }
 
     #crosshair {
@@ -213,8 +213,8 @@
     #crosshair::after {
       content: "";
       position: absolute;
-      background: rgba(255,255,255,0.95);
-      box-shadow: 0 0 8px rgba(0,0,0,0.7);
+      background: rgba(255,255,255,0.96);
+      box-shadow: 0 0 8px rgba(0,0,0,0.75);
       border-radius: 999px;
     }
 
@@ -234,6 +234,23 @@
       transform: translateY(-50%);
     }
 
+    #globalUnderwater {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(210,245,255,0.02),
+          rgba(120,220,255,0.10),
+          rgba(70,190,245,0.18)
+        );
+      backdrop-filter: blur(0.8px) saturate(1.05);
+      transition: opacity 0.18s ease-out;
+    }
+
     #topBar {
       position: fixed;
       top: 12px;
@@ -242,7 +259,7 @@
       z-index: 22;
       padding: 10px 12px;
       border-radius: 14px;
-      background: rgba(0, 25, 45, 0.70);
+      background: rgba(0,25,45,0.70);
       color: #fff;
       font-size: 13px;
       line-height: 1.45;
@@ -256,7 +273,7 @@
       bottom: 16px;
       z-index: 22;
       color: white;
-      background: rgba(0, 28, 48, 0.84);
+      background: rgba(0,28,48,0.84);
       padding: 14px;
       border-radius: 18px;
       backdrop-filter: blur(10px);
@@ -288,9 +305,8 @@
     }
 
     #heightText,
-    #scaleText,
     #ppmText {
-      min-width: 62px;
+      min-width: 64px;
       text-align: right;
       font-weight: 700;
       font-size: 15px;
@@ -360,30 +376,44 @@
       line-height: 1.45;
     }
 
-    .mini {
-      font-size: 11px;
-      opacity: 0.85;
-      margin-top: 6px;
-      line-height: 1.4;
+    @keyframes waterLineMove {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(2px); }
+      100% { transform: translateY(0); }
+    }
+
+    @keyframes waveMoveA {
+      0% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(26px) translateY(4px); }
+      100% { transform: translateX(0) translateY(0); }
+    }
+
+    @keyframes waveMoveB {
+      0% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(-22px) translateY(3px); }
+      100% { transform: translateX(0) translateY(0); }
+    }
+
+    @keyframes causticsMove {
+      0% { transform: translateX(-20px) translateY(-8px); }
+      50% { transform: translateX(22px) translateY(10px); }
+      100% { transform: translateX(-20px) translateY(-8px); }
     }
   </style>
 </head>
 
 <body>
+  <div id="errorBox"></div>
+
   <video id="camera" autoplay playsinline muted></video>
 
   <div id="globalUnderwater"></div>
 
-  <div id="underwaterArea">
-    <div id="underwaterColor"></div>
-    <div id="underwaterMist"></div>
-    <canvas id="causticsCanvas"></canvas>
-  </div>
+  <div id="underwaterArea"></div>
 
   <div id="waterSurfaceBand">
-    <div id="surfaceGlass"></div>
-    <div id="surfaceHighlight"></div>
-    <canvas id="waterlineCanvas"></canvas>
+    <div class="waveA"></div>
+    <div class="waveB"></div>
   </div>
 
   <div id="floorLine"></div>
@@ -397,13 +427,13 @@
   <div id="topBar">
     ①十字を床に合わせて「床0mを設定」<br>
     ②十字を2m高さに合わせて「2m基準を設定」<br>
-    ③指定した浸水高さに水面ラインを表示します。
+    ③2.0mを押すと、水面ラインが2m基準に合います。
   </div>
 
   <button id="startButton">カメラを開始</button>
 
   <div id="ui">
-    <div id="title">2点基準 浸水深さWebAR</div>
+    <div id="title">2点基準 浸水深さWebAR 復旧版</div>
 
     <div class="row">
       <label for="heightSlider">浸水高さ</label>
@@ -436,19 +466,30 @@
       <div id="ppmText">120px</div>
     </div>
 
-    <div id="debug">状態：カメラ起動前</div>
+    <div id="debug">状態：ページ読込OK</div>
 
     <div id="basisInfo">
-      基準：床0mと2m基準の2点から、画面上の1mあたりの高さを自動計算します。<br>
-      水面より上は通常、水面より下は淡い水色の水中表現になります。
-    </div>
-
-    <div class="mini">
-      ※ブラウザ版のため、自動床検出ではありません。壁・柱・ドア・身長目安などで2m基準を設定すると精度が上がります。
+      床0mと2m基準の2点から、画面上の1mあたりの高さを自動計算します。<br>
+      ※自動床検出ではなく、手動キャリブレーション方式です。
     </div>
   </div>
 
   <script>
+    function showError(message) {
+      const box = document.getElementById("errorBox");
+      if (!box) return;
+      box.style.display = "block";
+      box.textContent = message;
+    }
+
+    window.addEventListener("error", function (event) {
+      showError("JavaScript Error:\n" + event.message + "\nline: " + event.lineno);
+    });
+
+    window.addEventListener("unhandledrejection", function (event) {
+      showError("Promise Error:\n" + event.reason);
+    });
+
     const video = document.getElementById("camera");
     const startButton = document.getElementById("startButton");
 
@@ -480,13 +521,6 @@
     const demoHigh = document.getElementById("demoHigh");
     const demoMax = document.getElementById("demoMax");
 
-    const waterlineCanvas = document.getElementById("waterlineCanvas");
-    const causticsCanvas = document.getElementById("causticsCanvas");
-
-    /*
-      初期値
-      床0mを画面下寄り、2m基準をその上に仮配置。
-    */
     let floorY = Math.round(window.innerHeight * 0.72);
     let ref2mY = Math.round(floorY - 240);
 
@@ -500,11 +534,7 @@
 
     function getPixelsPerMeter() {
       const diff = floorY - ref2mY;
-
-      if (diff <= 20) {
-        return 120;
-      }
-
+      if (diff <= 20) return 120;
       return diff / REF_HEIGHT_METERS;
     }
 
@@ -515,8 +545,7 @@
       refLine.style.top = ref2mY + "px";
       refLabel.style.top = Math.max(8, ref2mY - 26) + "px";
 
-      const ppm = getPixelsPerMeter();
-      ppmText.textContent = Math.round(ppm) + "px";
+      ppmText.textContent = Math.round(getPixelsPerMeter()) + "px";
     }
 
     function updateFloodHeight() {
@@ -526,21 +555,12 @@
       heightText.textContent = h.toFixed(1) + "m";
       ppmText.textContent = Math.round(ppm) + "px";
 
-      /*
-        床0mから、水深hメートル分だけ上に水面を置く。
-        2点キャリブレーション済みの場合、
-        h=2.0 なら ref2mY とほぼ同じ位置になる。
-      */
       let waterSurfaceY = floorY - h * ppm;
-
       waterSurfaceY = Math.max(40, Math.min(window.innerHeight - 40, waterSurfaceY));
 
       underwaterArea.style.top = waterSurfaceY + "px";
-      waterSurfaceBand.style.top = (waterSurfaceY - 44) + "px";
+      waterSurfaceBand.style.top = (waterSurfaceY - 43) + "px";
 
-      /*
-        水位が目線高さを超えたら、画面全体を少し水中っぽくする。
-      */
       if (h <= EYE_HEIGHT_METERS) {
         globalUnderwater.style.opacity = "0";
       } else {
@@ -560,9 +580,6 @@
     function setFloorToCenter() {
       floorY = Math.round(window.innerHeight / 2);
 
-      /*
-        床を設定し直した場合、2m基準が床より下にならないよう調整。
-      */
       if (ref2mY >= floorY - 40) {
         ref2mY = floorY - 240;
       }
@@ -574,14 +591,11 @@
     function setRefToCenter() {
       ref2mY = Math.round(window.innerHeight / 2);
 
-      /*
-        2m基準は床より上にある必要がある。
-      */
       if (ref2mY >= floorY - 40) {
-        setDebug("2m基準が床0mに近すぎます。床より上の位置に合わせてください");
+        setDebug("2m基準が床0mに近すぎます。床より上に合わせてください");
+        ref2mY = floorY - 120;
       } else {
-        const ppm = getPixelsPerMeter();
-        setDebug("2m基準を設定しました / 1mあたり " + Math.round(ppm) + "px");
+        setDebug("2m基準を設定しました");
       }
 
       updateFloodHeight();
@@ -609,147 +623,6 @@
       updateFloodHeight();
     }
 
-    function resizeCanvasToDisplaySize(canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = window.devicePixelRatio || 1;
-      const width = Math.max(1, Math.round(rect.width * ratio));
-      const height = Math.max(1, Math.round(rect.height * ratio));
-
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-
-      return { width, height, ratio };
-    }
-
-    function drawWaterline(time) {
-      const { width, height } = resizeCanvasToDisplaySize(waterlineCanvas);
-      const ctx = waterlineCanvas.getContext("2d");
-      if (!ctx) return;
-
-      ctx.clearRect(0, 0, width, height);
-
-      const t = time * 0.001;
-
-      const glassGrad = ctx.createLinearGradient(0, 0, 0, height);
-      glassGrad.addColorStop(0, "rgba(255,255,255,0.06)");
-      glassGrad.addColorStop(0.35, "rgba(160,220,255,0.10)");
-      glassGrad.addColorStop(1, "rgba(70,180,235,0.08)");
-      ctx.fillStyle = glassGrad;
-      ctx.fillRect(0, height * 0.18, width, height * 0.50);
-
-      const shineGrad = ctx.createRadialGradient(
-        width * 0.52, height * 0.40, 0,
-        width * 0.52, height * 0.40, width * 0.30
-      );
-      shineGrad.addColorStop(0, "rgba(255,255,255,0.34)");
-      shineGrad.addColorStop(0.25, "rgba(255,255,255,0.18)");
-      shineGrad.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = shineGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      const baseY = height * 0.52;
-
-      ctx.beginPath();
-      for (let x = 0; x <= width; x += 4) {
-        const y =
-          baseY
-          + Math.sin(x * 0.012 + t * 2.2) * 5
-          + Math.sin(x * 0.026 + t * 1.3) * 2.5
-          + Math.sin(x * 0.004 + t * 0.6) * 1.8;
-
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = "rgba(245,255,255,0.96)";
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = "rgba(255,255,255,0.9)";
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      ctx.beginPath();
-      for (let x = 0; x <= width; x += 4) {
-        const y =
-          baseY + 4
-          + Math.sin(x * 0.012 + t * 2.0) * 4
-          + Math.sin(x * 0.026 + t * 1.1) * 2;
-
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "rgba(120,220,255,0.55)";
-      ctx.stroke();
-
-      for (let i = 0; i < 8; i++) {
-        const px = ((i / 8) * width + (t * 30 * (i % 2 === 0 ? 1 : -1))) % width;
-        const x = px < 0 ? px + width : px;
-        const y = baseY - 8 + Math.sin(x * 0.02 + t * 1.8) * 3;
-
-        const g = ctx.createRadialGradient(x, y, 0, x, y, 26);
-        g.addColorStop(0, "rgba(255,255,255,0.24)");
-        g.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, 26, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function drawCaustics(time) {
-      const { width, height } = resizeCanvasToDisplaySize(causticsCanvas);
-      const ctx = causticsCanvas.getContext("2d");
-      if (!ctx) return;
-
-      ctx.clearRect(0, 0, width, height);
-
-      const t = time * 0.001;
-
-      const baseGrad = ctx.createLinearGradient(0, 0, 0, height);
-      baseGrad.addColorStop(0, "rgba(255,255,255,0.08)");
-      baseGrad.addColorStop(1, "rgba(255,255,255,0.00)");
-      ctx.fillStyle = baseGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.11)";
-      ctx.lineWidth = 1.2;
-
-      for (let j = 0; j < 9; j++) {
-        const baseY = (j / 8) * height;
-        ctx.beginPath();
-
-        for (let x = 0; x <= width; x += 10) {
-          const y =
-            baseY
-            + Math.sin(x * 0.018 + t * 1.6 + j * 0.9) * 8
-            + Math.sin(x * 0.007 + t * 0.7 + j * 0.5) * 6;
-
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = "rgba(255,255,255,0.07)";
-      for (let i = -height; i < width + height; i += 48) {
-        ctx.beginPath();
-        ctx.moveTo(i + Math.sin(t * 0.8) * 14, 0);
-        ctx.lineTo(i - 80 + Math.sin(t * 0.8) * 14, height);
-        ctx.stroke();
-      }
-    }
-
-    function animate(time) {
-      drawWaterline(time);
-      drawCaustics(time);
-      requestAnimationFrame(animate);
-    }
-
     async function startCamera() {
       try {
         setDebug("カメラ起動中...");
@@ -771,7 +644,7 @@
 
         video.srcObject = stream;
 
-        video.onloadedmetadata = async () => {
+        video.onloadedmetadata = async function () {
           try {
             await video.play();
             startButton.classList.add("hidden");
@@ -782,8 +655,6 @@
         };
 
       } catch (error) {
-        console.error(error);
-
         let message = "カメラ起動失敗：" + error.name;
 
         if (error.name === "NotAllowedError") {
@@ -803,21 +674,20 @@
 
     heightSlider.addEventListener("input", updateFloodHeight);
 
-    const setFloorButton = document.getElementById("setFloorButton");
-    const setRefButton = document.getElementById("setRefButton");
+    setFloorButton.addEventListener("click", setFloorToCenter);
+    setRefButton.addEventListener("click", setRefToCenter);
 
-    const floorUpButton = document.getElementById("floorUpButton");
-    floorUpButton.addEventListener("click", () => moveFloor(-12));
-    floorDownButton.addEventListener("click", () => moveFloor(12));
-    refUpButton.addEventListener("click", () => moveRef(-12));
-    refDownButton.addEventListener("click", () => moveRef(12));
+    floorUpButton.addEventListener("click", function () { moveFloor(-12); });
+    floorDownButton.addEventListener("click", function () { moveFloor(12); });
+    refUpButton.addEventListener("click", function () { moveRef(-12); });
+    refDownButton.addEventListener("click", function () { moveRef(12); });
 
-    demoLow.addEventListener("click", () => setHeight(0.5));
-    demoMid.addEventListener("click", () => setHeight(1.0));
-    demoHigh.addEventListener("click", () => setHeight(2.0));
-    demoMax.addEventListener("click", () => setHeight(3.0));
+    demoLow.addEventListener("click", function () { setHeight(0.5); });
+    demoMid.addEventListener("click", function () { setHeight(1.0); });
+    demoHigh.addEventListener("click", function () { setHeight(2.0); });
+    demoMax.addEventListener("click", function () { setHeight(3.0); });
 
-    window.addEventListener("resize", () => {
+    window.addEventListener("resize", function () {
       floorY = Math.round(Math.min(floorY, window.innerHeight - 40));
       ref2mY = Math.round(Math.max(40, Math.min(ref2mY, floorY - 40)));
       updateFloodHeight();
@@ -825,7 +695,6 @@
 
     updateGuideLines();
     updateFloodHeight();
-    requestAnimationFrame(animate);
   </script>
 </body>
 </html>
