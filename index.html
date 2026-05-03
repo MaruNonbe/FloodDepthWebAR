@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR Simulator - Waterline View</title>
+  <title>Flood Depth WebAR - High Quality Waterline</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
   <style>
@@ -27,8 +27,27 @@
     }
 
     /*
-      水面より下の領域。
-      画像のように、下側だけ淡い水色に染める。
+      高水位時の全画面水中感
+    */
+    #globalUnderwater {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease-out;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(210, 245, 255, 0.02),
+          rgba(120, 220, 255, 0.10) 45%,
+          rgba(70, 190, 245, 0.16) 100%
+        );
+      backdrop-filter: blur(0.9px) saturate(1.05);
+    }
+
+    /*
+      水面より下の領域
     */
     #underwaterArea {
       position: fixed;
@@ -39,77 +58,67 @@
       z-index: 5;
       pointer-events: none;
       overflow: hidden;
-
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(120, 220, 255, 0.22) 0%,
-          rgba(80, 200, 245, 0.34) 32%,
-          rgba(35, 165, 225, 0.48) 70%,
-          rgba(10, 110, 180, 0.58) 100%
-        );
-
-      backdrop-filter: blur(1.1px) saturate(1.12);
       transition: top 0.12s ease-out;
     }
 
     /*
-      水中の光のゆらぎ・屈折風の模様
+      水中のベース色
     */
-    #underwaterArea::before {
-      content: "";
+    #underwaterColor {
       position: absolute;
-      inset: -20%;
+      inset: 0;
       background:
-        repeating-linear-gradient(
-          160deg,
-          rgba(255,255,255,0.00) 0px,
-          rgba(255,255,255,0.00) 28px,
-          rgba(255,255,255,0.16) 34px,
-          rgba(255,255,255,0.00) 48px
-        ),
-        repeating-linear-gradient(
-          25deg,
-          rgba(255,255,255,0.00) 0px,
-          rgba(255,255,255,0.00) 42px,
-          rgba(255,255,255,0.10) 50px,
-          rgba(255,255,255,0.00) 66px
+        linear-gradient(
+          to bottom,
+          rgba(120, 220, 255, 0.18) 0%,
+          rgba(85, 205, 245, 0.28) 30%,
+          rgba(40, 170, 230, 0.42) 70%,
+          rgba(10, 110, 180, 0.52) 100%
         );
-      opacity: 0.38;
-      animation: causticsMove 7s linear infinite;
+      backdrop-filter: blur(1px) saturate(1.08);
     }
 
     /*
-      水中の遠くが少し白っぽく霞む感じ
+      水中の霞
     */
-    #underwaterArea::after {
-      content: "";
+    #underwaterMist {
       position: absolute;
       inset: 0;
       background:
         radial-gradient(
-          ellipse at 50% 10%,
-          rgba(255,255,255,0.18) 0%,
-          rgba(255,255,255,0.00) 48%
+          ellipse at 50% 0%,
+          rgba(255,255,255,0.16) 0%,
+          rgba(255,255,255,0.00) 55%
         ),
         linear-gradient(
           to bottom,
-          rgba(255,255,255,0.08),
-          rgba(255,255,255,0.00) 55%
+          rgba(255,255,255,0.06) 0%,
+          rgba(255,255,255,0.00) 42%
         );
-      opacity: 0.78;
+      opacity: 0.85;
     }
 
     /*
-      水面ライン周辺。
-      画像の中央にある、波立った境界線。
+      水中のゆらぎ描画用
+    */
+    #causticsCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.35;
+      mix-blend-mode: screen;
+    }
+
+    /*
+      水面帯
     */
     #waterSurfaceBand {
       position: fixed;
       left: 0;
       right: 0;
-      top: calc(60% - 42px);
-      height: 84px;
+      top: calc(60% - 44px);
+      height: 88px;
       z-index: 8;
       pointer-events: none;
       overflow: hidden;
@@ -117,107 +126,56 @@
     }
 
     /*
-      水面の透明な板。
-      少しだけ上下に厚みを持たせる。
+      水面の薄い透明層
     */
-    .surfaceGlass {
+    #surfaceGlass {
       position: absolute;
-      left: -5%;
-      right: -5%;
-      top: 18px;
-      height: 50px;
+      left: 0;
+      right: 0;
+      top: 10px;
+      bottom: 10px;
       background:
         linear-gradient(
           to bottom,
-          rgba(255,255,255,0.08) 0%,
-          rgba(180,235,255,0.22) 42%,
-          rgba(80,190,235,0.20) 100%
+          rgba(255,255,255,0.04) 0%,
+          rgba(180, 235, 255, 0.12) 35%,
+          rgba(80, 190, 235, 0.10) 100%
         );
       opacity: 0.95;
-      filter: blur(0.2px);
     }
 
     /*
-      水面のメイン白線。
-      画像のように、ここを一番目立たせる。
+      水面の太陽反射
     */
-    .surfaceLine {
+    #surfaceHighlight {
       position: absolute;
-      left: -8%;
-      right: -8%;
-      top: 40px;
-      height: 5px;
-      background: rgba(245,255,255,0.95);
-      border-radius: 999px;
-      box-shadow:
-        0 0 10px rgba(255,255,255,0.95),
-        0 4px 18px rgba(150,230,255,0.85),
-        0 -4px 12px rgba(255,255,255,0.55);
-      animation: surfaceLineWave 3.2s ease-in-out infinite;
-    }
-
-    /*
-      水面の波の凹凸。
-    */
-    .surfaceWave1,
-    .surfaceWave2 {
-      position: absolute;
-      left: -12%;
-      right: -12%;
-      height: 34px;
-      top: 26px;
-      opacity: 0.8;
-    }
-
-    .surfaceWave1 {
-      background:
-        radial-gradient(ellipse at 8% 52%, rgba(255,255,255,0.72), rgba(255,255,255,0) 58%),
-        radial-gradient(ellipse at 22% 44%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 40% 57%, rgba(255,255,255,0.62), rgba(255,255,255,0) 58%),
-        radial-gradient(ellipse at 58% 46%, rgba(255,255,255,0.54), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 78% 55%, rgba(255,255,255,0.68), rgba(255,255,255,0) 58%);
-      animation: waveMoveA 4s ease-in-out infinite;
-    }
-
-    .surfaceWave2 {
-      top: 34px;
-      opacity: 0.45;
-      background:
-        radial-gradient(ellipse at 15% 50%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 45% 48%, rgba(255,255,255,0.40), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 72% 54%, rgba(255,255,255,0.46), rgba(255,255,255,0) 60%);
-      animation: waveMoveB 5.3s ease-in-out infinite;
-    }
-
-    /*
-      太陽光の反射。
-    */
-    .surfaceShine {
-      position: absolute;
-      left: -10%;
-      right: -10%;
-      top: 12px;
-      height: 56px;
+      left: 10%;
+      width: 80%;
+      top: 8px;
+      height: 60px;
       background:
         radial-gradient(
-          ellipse at 54% 50%,
-          rgba(255,255,255,0.46) 0%,
-          rgba(255,255,255,0.18) 28%,
-          rgba(255,255,255,0.00) 62%
-        ),
-        repeating-linear-gradient(
-          170deg,
-          rgba(255,255,255,0.00) 0px,
-          rgba(255,255,255,0.00) 24px,
-          rgba(255,255,255,0.16) 30px,
-          rgba(255,255,255,0.00) 42px
+          ellipse at 50% 60%,
+          rgba(255,255,255,0.42) 0%,
+          rgba(255,255,255,0.14) 22%,
+          rgba(255,255,255,0.00) 60%
         );
-      opacity: 0.72;
-      animation: shineMove 6s linear infinite;
+      opacity: 0.82;
+      filter: blur(1px);
     }
 
     /*
-      床0mライン。通常は邪魔なので薄め。
+      水面波描画用
+    */
+    #waterlineCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /*
+      床ライン
     */
     #floorLine {
       position: fixed;
@@ -244,7 +202,7 @@
     }
 
     /*
-      床合わせ用十字。
+      床合わせ用十字
     */
     #crosshair {
       position: fixed;
@@ -281,27 +239,6 @@
       width: 42px;
       height: 2px;
       transform: translateY(-50%);
-    }
-
-    /*
-      画面全体の水中感。
-      水位が目線を超えた時に少しだけ出す。
-    */
-    #globalUnderwater {
-      position: fixed;
-      inset: 0;
-      z-index: 4;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.18s ease-out;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(210, 245, 255, 0.02),
-          rgba(120, 220, 255, 0.12) 45%,
-          rgba(70, 190, 245, 0.18) 100%
-        );
-      backdrop-filter: blur(0.9px) saturate(1.05);
     }
 
     #topBar {
@@ -417,35 +354,6 @@
       opacity: 0.82;
       line-height: 1.45;
     }
-
-    @keyframes causticsMove {
-      0%   { transform: translateX(-20px) translateY(-8px); }
-      50%  { transform: translateX(22px) translateY(10px); }
-      100% { transform: translateX(-20px) translateY(-8px); }
-    }
-
-    @keyframes surfaceLineWave {
-      0%   { transform: translateY(0) scaleY(1); }
-      50%  { transform: translateY(2px) scaleY(1.12); }
-      100% { transform: translateY(0) scaleY(1); }
-    }
-
-    @keyframes waveMoveA {
-      0%   { transform: translateX(0) translateY(0); }
-      50%  { transform: translateX(26px) translateY(4px); }
-      100% { transform: translateX(0) translateY(0); }
-    }
-
-    @keyframes waveMoveB {
-      0%   { transform: translateX(0) translateY(0); }
-      50%  { transform: translateX(-22px) translateY(3px); }
-      100% { transform: translateX(0) translateY(0); }
-    }
-
-    @keyframes shineMove {
-      0%   { transform: translateX(-22px); }
-      100% { transform: translateX(22px); }
-    }
   </style>
 </head>
 
@@ -454,14 +362,16 @@
 
   <div id="globalUnderwater"></div>
 
-  <div id="underwaterArea"></div>
+  <div id="underwaterArea">
+    <div id="underwaterColor"></div>
+    <div id="underwaterMist"></div>
+    <canvas id="causticsCanvas"></canvas>
+  </div>
 
   <div id="waterSurfaceBand">
-    <div class="surfaceGlass"></div>
-    <div class="surfaceShine"></div>
-    <div class="surfaceWave1"></div>
-    <div class="surfaceWave2"></div>
-    <div class="surfaceLine"></div>
+    <div id="surfaceGlass"></div>
+    <div id="surfaceHighlight"></div>
+    <canvas id="waterlineCanvas"></canvas>
   </div>
 
   <div id="floorLine"></div>
@@ -470,13 +380,13 @@
 
   <div id="topBar">
     画面中央の十字を床・地面に合わせて「床を中央に設定」を押してください。<br>
-    水面より上は通常、水面より下は淡い水色に染まって見えます。
+    水面ラインより上は通常、水面ラインより下は淡い水色の水中表現になります。
   </div>
 
   <button id="startButton">カメラを開始</button>
 
   <div id="ui">
-    <div id="title">床基準 浸水深さWebAR</div>
+    <div id="title">床基準 浸水深さWebAR（高品質版）</div>
 
     <div class="row">
       <label for="heightSlider">浸水高さ</label>
@@ -539,9 +449,11 @@
     const demoHigh = document.getElementById("demoHigh");
     const demoMax = document.getElementById("demoMax");
 
+    const waterlineCanvas = document.getElementById("waterlineCanvas");
+    const causticsCanvas = document.getElementById("causticsCanvas");
+
     let floorY = Math.round(window.innerHeight * 0.72);
     let pixelsPerMeter = parseFloat(scaleSlider.value);
-
     const EYE_HEIGHT_METERS = 1.5;
 
     function setDebug(message) {
@@ -565,7 +477,7 @@
       waterSurfaceY = Math.max(40, Math.min(window.innerHeight - 40, waterSurfaceY));
 
       underwaterArea.style.top = waterSurfaceY + "px";
-      waterSurfaceBand.style.top = (waterSurfaceY - 42) + "px";
+      waterSurfaceBand.style.top = (waterSurfaceY - 44) + "px";
 
       if (h <= EYE_HEIGHT_METERS) {
         globalUnderwater.style.opacity = "0";
@@ -595,6 +507,154 @@
       updateFloodHeight();
     }
 
+    function resizeCanvasToDisplaySize(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.round(rect.width * ratio));
+      const height = Math.max(1, Math.round(rect.height * ratio));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      return { width, height, ratio };
+    }
+
+    function drawWaterline(time) {
+      const { width, height } = resizeCanvasToDisplaySize(waterlineCanvas);
+      const ctx = waterlineCanvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const t = time * 0.001;
+
+      // ガラスっぽい薄い層
+      const glassGrad = ctx.createLinearGradient(0, 0, 0, height);
+      glassGrad.addColorStop(0, "rgba(255,255,255,0.06)");
+      glassGrad.addColorStop(0.35, "rgba(160,220,255,0.10)");
+      glassGrad.addColorStop(1, "rgba(70,180,235,0.08)");
+      ctx.fillStyle = glassGrad;
+      ctx.fillRect(0, height * 0.18, width, height * 0.50);
+
+      // 太陽光の反射帯
+      const shineGrad = ctx.createRadialGradient(
+        width * 0.52, height * 0.40, 0,
+        width * 0.52, height * 0.40, width * 0.30
+      );
+      shineGrad.addColorStop(0, "rgba(255,255,255,0.34)");
+      shineGrad.addColorStop(0.25, "rgba(255,255,255,0.18)");
+      shineGrad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = shineGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 主水面ラインの波
+      const baseY = height * 0.52;
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 4) {
+        const y =
+          baseY
+          + Math.sin(x * 0.012 + t * 2.2) * 5
+          + Math.sin(x * 0.026 + t * 1.3) * 2.5
+          + Math.sin(x * 0.004 + t * 0.6) * 1.8;
+
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(245,255,255,0.96)";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(255,255,255,0.9)";
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // 下側の青い縁
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 4) {
+        const y =
+          baseY + 4
+          + Math.sin(x * 0.012 + t * 2.0) * 4
+          + Math.sin(x * 0.026 + t * 1.1) * 2;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "rgba(120,220,255,0.55)";
+      ctx.stroke();
+
+      // 白い小さなハイライト
+      for (let i = 0; i < 8; i++) {
+        const px = ((i / 8) * width + (t * 30 * (i % 2 === 0 ? 1 : -1))) % width;
+        const x = px < 0 ? px + width : px;
+        const y =
+          baseY - 8
+          + Math.sin(x * 0.02 + t * 1.8) * 3;
+
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 26);
+        g.addColorStop(0, "rgba(255,255,255,0.24)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, 26, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawCaustics(time) {
+      const { width, height } = resizeCanvasToDisplaySize(causticsCanvas);
+      const ctx = causticsCanvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const t = time * 0.001;
+
+      // 全体の薄い水中光
+      const baseGrad = ctx.createLinearGradient(0, 0, 0, height);
+      baseGrad.addColorStop(0, "rgba(255,255,255,0.08)");
+      baseGrad.addColorStop(1, "rgba(255,255,255,0.00)");
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 波紋風ライン
+      ctx.strokeStyle = "rgba(255,255,255,0.11)";
+      ctx.lineWidth = 1.2;
+
+      for (let j = 0; j < 9; j++) {
+        const baseY = (j / 8) * height;
+        ctx.beginPath();
+
+        for (let x = 0; x <= width; x += 10) {
+          const y =
+            baseY
+            + Math.sin(x * 0.018 + t * 1.6 + j * 0.9) * 8
+            + Math.sin(x * 0.007 + t * 0.7 + j * 0.5) * 6;
+
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+
+        ctx.stroke();
+      }
+
+      // 斜めのキラキラ
+      ctx.strokeStyle = "rgba(255,255,255,0.07)";
+      for (let i = -height; i < width + height; i += 48) {
+        ctx.beginPath();
+        ctx.moveTo(i + Math.sin(t * 0.8) * 14, 0);
+        ctx.lineTo(i - 80 + Math.sin(t * 0.8) * 14, height);
+        ctx.stroke();
+      }
+    }
+
+    function animate(time) {
+      drawWaterline(time);
+      drawCaustics(time);
+      requestAnimationFrame(animate);
+    }
+
     async function startCamera() {
       try {
         setDebug("カメラ起動中...");
@@ -620,7 +680,7 @@
           try {
             await video.play();
             startButton.classList.add("hidden");
-            setDebug("カメラ起動OK / 水面境界表現を表示中");
+            setDebug("カメラ起動OK / 高品質水面表現を表示中");
           } catch (e) {
             setDebug("video play失敗：" + e.name);
           }
@@ -664,7 +724,8 @@
     });
 
     updateFloorVisual();
-    updateFloodHeight();  
+    updateFloodHeight();
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>
