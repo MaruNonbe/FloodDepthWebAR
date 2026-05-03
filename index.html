@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR Simulator - Floor Based</title>
+  <title>Flood Depth WebAR Simulator - Waterline View</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
   <style>
@@ -26,50 +26,226 @@
       z-index: 1;
     }
 
-    /* 水位が高いとき、水中に入った感じを出す */
-    #globalUnderwater {
+    /*
+      水面より下の領域。
+      画像のように、下側だけ淡い水色に染める。
+    */
+    #underwaterArea {
       position: fixed;
-      inset: 0;
-      z-index: 4;
+      left: 0;
+      right: 0;
+      top: 60%;
+      bottom: 0;
+      z-index: 5;
       pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s ease-out;
+      overflow: hidden;
+
       background:
         linear-gradient(
           to bottom,
-          rgba(210, 245, 255, 0.03),
-          rgba(120, 220, 255, 0.14) 45%,
-          rgba(70, 190, 245, 0.22) 100%
+          rgba(120, 220, 255, 0.22) 0%,
+          rgba(80, 200, 245, 0.34) 32%,
+          rgba(35, 165, 225, 0.48) 70%,
+          rgba(10, 110, 180, 0.58) 100%
         );
-      backdrop-filter: blur(1.2px) saturate(1.08);
+
+      backdrop-filter: blur(1.1px) saturate(1.12);
+      transition: top 0.12s ease-out;
     }
 
-    /* 床0mライン */
+    /*
+      水中の光のゆらぎ・屈折風の模様
+    */
+    #underwaterArea::before {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background:
+        repeating-linear-gradient(
+          160deg,
+          rgba(255,255,255,0.00) 0px,
+          rgba(255,255,255,0.00) 28px,
+          rgba(255,255,255,0.16) 34px,
+          rgba(255,255,255,0.00) 48px
+        ),
+        repeating-linear-gradient(
+          25deg,
+          rgba(255,255,255,0.00) 0px,
+          rgba(255,255,255,0.00) 42px,
+          rgba(255,255,255,0.10) 50px,
+          rgba(255,255,255,0.00) 66px
+        );
+      opacity: 0.38;
+      animation: causticsMove 7s linear infinite;
+    }
+
+    /*
+      水中の遠くが少し白っぽく霞む感じ
+    */
+    #underwaterArea::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(
+          ellipse at 50% 10%,
+          rgba(255,255,255,0.18) 0%,
+          rgba(255,255,255,0.00) 48%
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.08),
+          rgba(255,255,255,0.00) 55%
+        );
+      opacity: 0.78;
+    }
+
+    /*
+      水面ライン周辺。
+      画像の中央にある、波立った境界線。
+    */
+    #waterSurfaceBand {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: calc(60% - 42px);
+      height: 84px;
+      z-index: 8;
+      pointer-events: none;
+      overflow: hidden;
+      transition: top 0.12s ease-out;
+    }
+
+    /*
+      水面の透明な板。
+      少しだけ上下に厚みを持たせる。
+    */
+    .surfaceGlass {
+      position: absolute;
+      left: -5%;
+      right: -5%;
+      top: 18px;
+      height: 50px;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.08) 0%,
+          rgba(180,235,255,0.22) 42%,
+          rgba(80,190,235,0.20) 100%
+        );
+      opacity: 0.95;
+      filter: blur(0.2px);
+    }
+
+    /*
+      水面のメイン白線。
+      画像のように、ここを一番目立たせる。
+    */
+    .surfaceLine {
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      top: 40px;
+      height: 5px;
+      background: rgba(245,255,255,0.95);
+      border-radius: 999px;
+      box-shadow:
+        0 0 10px rgba(255,255,255,0.95),
+        0 4px 18px rgba(150,230,255,0.85),
+        0 -4px 12px rgba(255,255,255,0.55);
+      animation: surfaceLineWave 3.2s ease-in-out infinite;
+    }
+
+    /*
+      水面の波の凹凸。
+    */
+    .surfaceWave1,
+    .surfaceWave2 {
+      position: absolute;
+      left: -12%;
+      right: -12%;
+      height: 34px;
+      top: 26px;
+      opacity: 0.8;
+    }
+
+    .surfaceWave1 {
+      background:
+        radial-gradient(ellipse at 8% 52%, rgba(255,255,255,0.72), rgba(255,255,255,0) 58%),
+        radial-gradient(ellipse at 22% 44%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 40% 57%, rgba(255,255,255,0.62), rgba(255,255,255,0) 58%),
+        radial-gradient(ellipse at 58% 46%, rgba(255,255,255,0.54), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 78% 55%, rgba(255,255,255,0.68), rgba(255,255,255,0) 58%);
+      animation: waveMoveA 4s ease-in-out infinite;
+    }
+
+    .surfaceWave2 {
+      top: 34px;
+      opacity: 0.45;
+      background:
+        radial-gradient(ellipse at 15% 50%, rgba(255,255,255,0.48), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 45% 48%, rgba(255,255,255,0.40), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 72% 54%, rgba(255,255,255,0.46), rgba(255,255,255,0) 60%);
+      animation: waveMoveB 5.3s ease-in-out infinite;
+    }
+
+    /*
+      太陽光の反射。
+    */
+    .surfaceShine {
+      position: absolute;
+      left: -10%;
+      right: -10%;
+      top: 12px;
+      height: 56px;
+      background:
+        radial-gradient(
+          ellipse at 54% 50%,
+          rgba(255,255,255,0.46) 0%,
+          rgba(255,255,255,0.18) 28%,
+          rgba(255,255,255,0.00) 62%
+        ),
+        repeating-linear-gradient(
+          170deg,
+          rgba(255,255,255,0.00) 0px,
+          rgba(255,255,255,0.00) 24px,
+          rgba(255,255,255,0.16) 30px,
+          rgba(255,255,255,0.00) 42px
+        );
+      opacity: 0.72;
+      animation: shineMove 6s linear infinite;
+    }
+
+    /*
+      床0mライン。通常は邪魔なので薄め。
+    */
     #floorLine {
       position: fixed;
       left: 0;
       right: 0;
       height: 2px;
-      background: rgba(255, 240, 120, 0.95);
-      z-index: 18;
+      background: rgba(255, 230, 80, 0.72);
+      z-index: 16;
       pointer-events: none;
-      box-shadow: 0 0 10px rgba(255, 240, 120, 0.9);
+      box-shadow: 0 0 8px rgba(255, 230, 80, 0.8);
     }
 
     #floorLabel {
       position: fixed;
-      left: 14px;
-      z-index: 19;
+      left: 12px;
+      z-index: 17;
       pointer-events: none;
-      color: #fff6a0;
-      background: rgba(0,0,0,0.45);
+      color: #fff4a0;
+      background: rgba(0,0,0,0.42);
       border-radius: 999px;
       padding: 4px 8px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
     }
 
-    /* 画面中央の床合わせ用十字 */
+    /*
+      床合わせ用十字。
+    */
     #crosshair {
       position: fixed;
       left: 50%;
@@ -107,177 +283,25 @@
       transform: translateY(-50%);
     }
 
-    /* 床基準から立ち上がる水の直方体 */
-    #floodVolume {
+    /*
+      画面全体の水中感。
+      水位が目線を超えた時に少しだけ出す。
+    */
+    #globalUnderwater {
       position: fixed;
-      left: 0;
-      right: 0;
-      top: 50%;
-      bottom: 0;
-      z-index: 6;
+      inset: 0;
+      z-index: 4;
       pointer-events: none;
-      overflow: visible;
-      transition: top 0.12s ease-out;
-    }
-
-    #floodBody {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      overflow: hidden;
-
+      opacity: 0;
+      transition: opacity 0.18s ease-out;
       background:
         linear-gradient(
           to bottom,
-          rgba(180, 238, 255, 0.12) 0%,
-          rgba(120, 220, 250, 0.18) 22%,
-          rgba(65, 190, 235, 0.28) 50%,
-          rgba(30, 155, 220, 0.40) 78%,
-          rgba(10, 120, 190, 0.52) 100%
+          rgba(210, 245, 255, 0.02),
+          rgba(120, 220, 255, 0.12) 45%,
+          rgba(70, 190, 245, 0.18) 100%
         );
-
-      backdrop-filter: blur(1.4px) saturate(1.08);
-
-      box-shadow:
-        inset 0 14px 18px rgba(255,255,255,0.05),
-        inset 0 -18px 28px rgba(0,0,0,0.08);
-    }
-
-    #underwaterTint {
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(230, 248, 255, 0.05),
-          rgba(140, 225, 255, 0.13) 35%,
-          rgba(75, 195, 245, 0.20) 100%
-        );
-      mix-blend-mode: screen;
-    }
-
-    #underwaterMist {
-      position: absolute;
-      inset: 0;
-      background: rgba(145, 225, 255, 0.07);
-      backdrop-filter: blur(1px);
-    }
-
-    /* 直方体の上面＝水面 */
-    #waterSurface {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 14vh;
-      top: -7vh;
-      overflow: hidden;
-      pointer-events: none;
-
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.18) 0%,
-          rgba(190, 240, 255, 0.16) 24%,
-          rgba(115, 215, 245, 0.14) 55%,
-          rgba(40, 165, 225, 0.12) 100%
-        );
-
-      box-shadow:
-        0 0 20px rgba(220, 250, 255, 0.18),
-        inset 0 10px 14px rgba(255,255,255,0.08);
-    }
-
-    #waterSurface .surfaceGlow {
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(
-          ellipse at 50% 35%,
-          rgba(255,255,255,0.46) 0%,
-          rgba(255,255,255,0.00) 42%
-        ),
-        linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.12),
-          rgba(255,255,255,0.00) 35%
-        );
-      opacity: 0.95;
-    }
-
-    #waterSurface .surfaceLine {
-      position: absolute;
-      left: 8%;
-      right: 8%;
-      top: 62%;
-      height: 4px;
-      background: rgba(248, 255, 255, 0.96);
-      border-radius: 999px;
-      box-shadow:
-        0 0 12px rgba(255,255,255,0.95),
-        0 0 20px rgba(180,235,255,0.85);
-      animation: surfaceLineMove 2.8s ease-in-out infinite;
-    }
-
-    .waterWave {
-      position: absolute;
-      left: 3%;
-      right: 3%;
-      height: 28px;
-      opacity: 0.95;
-    }
-
-    .waterWave1 {
-      top: 50%;
-      background:
-        radial-gradient(ellipse at 8% 55%, rgba(255,255,255,0.84), rgba(255,255,255,0.0) 58%),
-        radial-gradient(ellipse at 24% 42%, rgba(255,255,255,0.60), rgba(255,255,255,0.0) 58%),
-        radial-gradient(ellipse at 42% 58%, rgba(255,255,255,0.72), rgba(255,255,255,0.0) 58%),
-        radial-gradient(ellipse at 62% 46%, rgba(255,255,255,0.64), rgba(255,255,255,0.0) 58%),
-        radial-gradient(ellipse at 82% 52%, rgba(255,255,255,0.78), rgba(255,255,255,0.0) 58%);
-      animation: waveMove1 3.5s ease-in-out infinite;
-    }
-
-    .waterWave2 {
-      top: 46%;
-      opacity: 0.42;
-      background:
-        radial-gradient(ellipse at 16% 50%, rgba(255,255,255,0.52), rgba(255,255,255,0.0) 60%),
-        radial-gradient(ellipse at 46% 46%, rgba(255,255,255,0.46), rgba(255,255,255,0.0) 60%),
-        radial-gradient(ellipse at 74% 52%, rgba(255,255,255,0.50), rgba(255,255,255,0.0) 60%);
-      animation: waveMove2 4.8s ease-in-out infinite;
-    }
-
-    .waterRipple {
-      position: absolute;
-      inset: 0;
-      opacity: 0.28;
-    }
-
-    .waterRipple1 {
-      background:
-        repeating-linear-gradient(
-          165deg,
-          rgba(255,255,255,0.0) 0px,
-          rgba(255,255,255,0.0) 18px,
-          rgba(255,255,255,0.15) 24px,
-          rgba(255,255,255,0.0) 34px
-        );
-      animation: shimmer1 5.5s linear infinite;
-    }
-
-    .waterRipple2 {
-      background:
-        repeating-linear-gradient(
-          12deg,
-          rgba(255,255,255,0.0) 0px,
-          rgba(255,255,255,0.0) 28px,
-          rgba(255,255,255,0.08) 36px,
-          rgba(255,255,255,0.0) 48px
-        );
-      opacity: 0.16;
-      animation: shimmer2 7.0s linear infinite;
+      backdrop-filter: blur(0.9px) saturate(1.05);
     }
 
     #topBar {
@@ -285,7 +309,7 @@
       top: 12px;
       left: 12px;
       right: 12px;
-      z-index: 20;
+      z-index: 22;
       padding: 10px 12px;
       border-radius: 14px;
       background: rgba(0, 25, 45, 0.68);
@@ -300,9 +324,9 @@
       left: 12px;
       right: 12px;
       bottom: 16px;
-      z-index: 20;
+      z-index: 22;
       color: white;
-      background: rgba(0, 28, 48, 0.80);
+      background: rgba(0, 28, 48, 0.82);
       padding: 14px;
       border-radius: 18px;
       backdrop-filter: blur(10px);
@@ -394,32 +418,33 @@
       line-height: 1.45;
     }
 
-    @keyframes surfaceLineMove {
-      0%   { transform: translateY(0); }
-      50%  { transform: translateY(2px); }
-      100% { transform: translateY(0); }
+    @keyframes causticsMove {
+      0%   { transform: translateX(-20px) translateY(-8px); }
+      50%  { transform: translateX(22px) translateY(10px); }
+      100% { transform: translateX(-20px) translateY(-8px); }
     }
 
-    @keyframes waveMove1 {
+    @keyframes surfaceLineWave {
+      0%   { transform: translateY(0) scaleY(1); }
+      50%  { transform: translateY(2px) scaleY(1.12); }
+      100% { transform: translateY(0) scaleY(1); }
+    }
+
+    @keyframes waveMoveA {
       0%   { transform: translateX(0) translateY(0); }
-      50%  { transform: translateX(22px) translateY(3px); }
+      50%  { transform: translateX(26px) translateY(4px); }
       100% { transform: translateX(0) translateY(0); }
     }
 
-    @keyframes waveMove2 {
+    @keyframes waveMoveB {
       0%   { transform: translateX(0) translateY(0); }
-      50%  { transform: translateX(-18px) translateY(2px); }
+      50%  { transform: translateX(-22px) translateY(3px); }
       100% { transform: translateX(0) translateY(0); }
     }
 
-    @keyframes shimmer1 {
-      0%   { transform: translateX(-24px); }
-      100% { transform: translateX(24px); }
-    }
-
-    @keyframes shimmer2 {
-      0%   { transform: translateX(20px); }
-      100% { transform: translateX(-20px); }
+    @keyframes shineMove {
+      0%   { transform: translateX(-22px); }
+      100% { transform: translateX(22px); }
     }
   </style>
 </head>
@@ -429,29 +454,23 @@
 
   <div id="globalUnderwater"></div>
 
+  <div id="underwaterArea"></div>
+
+  <div id="waterSurfaceBand">
+    <div class="surfaceGlass"></div>
+    <div class="surfaceShine"></div>
+    <div class="surfaceWave1"></div>
+    <div class="surfaceWave2"></div>
+    <div class="surfaceLine"></div>
+  </div>
+
   <div id="floorLine"></div>
   <div id="floorLabel">床 0m</div>
   <div id="crosshair"></div>
 
-  <div id="floodVolume">
-    <div id="floodBody">
-      <div id="underwaterTint"></div>
-      <div id="underwaterMist"></div>
-    </div>
-
-    <div id="waterSurface">
-      <div class="surfaceGlow"></div>
-      <div class="surfaceLine"></div>
-      <div class="waterWave waterWave1"></div>
-      <div class="waterWave waterWave2"></div>
-      <div class="waterRipple waterRipple1"></div>
-      <div class="waterRipple waterRipple2"></div>
-    </div>
-  </div>
-
   <div id="topBar">
     画面中央の十字を床・地面に合わせて「床を中央に設定」を押してください。<br>
-    その床0mから指定した浸水高さの水面を表示します。
+    水面より上は通常、水面より下は淡い水色に染まって見えます。
   </div>
 
   <button id="startButton">カメラを開始</button>
@@ -487,8 +506,8 @@
     <div id="debug">状態：カメラ起動前</div>
 
     <div id="basisInfo">
-      基準：画面中央の十字を床に合わせて設定した位置を「床0m」とします。<br>
-      ※ブラウザ版のため、実測床検出ではなく、体験者が指定した床基準から水位を計算する方式です。
+      基準：床0mを手動設定し、そこから指定した浸水高さの水面ラインを表示します。<br>
+      ※ブラウザ版のため、実測床検出ではなく、体験者が指定した床基準から水位を計算します。
     </div>
   </div>
 
@@ -502,7 +521,8 @@
     const scaleSlider = document.getElementById("scaleSlider");
     const scaleText = document.getElementById("scaleText");
 
-    const floodVolume = document.getElementById("floodVolume");
+    const underwaterArea = document.getElementById("underwaterArea");
+    const waterSurfaceBand = document.getElementById("waterSurfaceBand");
     const globalUnderwater = document.getElementById("globalUnderwater");
 
     const floorLine = document.getElementById("floorLine");
@@ -519,22 +539,9 @@
     const demoHigh = document.getElementById("demoHigh");
     const demoMax = document.getElementById("demoMax");
 
-    /*
-      初期床位置。
-      画面下寄りを仮の床0mにしておく。
-      ユーザーが「床を中央に設定」を押すと更新される。
-    */
     let floorY = Math.round(window.innerHeight * 0.72);
-
-    /*
-      1mあたり何px上に水面を上げるか。
-      端末・構図によって見え方が変わるので調整可能にする。
-    */
     let pixelsPerMeter = parseFloat(scaleSlider.value);
 
-    /*
-      水中に入った感じを出すための仮想目線高さ。
-    */
     const EYE_HEIGHT_METERS = 1.5;
 
     function setDebug(message) {
@@ -554,27 +561,17 @@
       heightText.textContent = h.toFixed(1) + "m";
       scaleText.textContent = String(Math.round(pixelsPerMeter));
 
-      /*
-        床0mから指定水位分だけ上に水面を出す。
-        waterSurfaceY が水面位置。
-      */
       let waterSurfaceY = floorY - h * pixelsPerMeter;
+      waterSurfaceY = Math.max(40, Math.min(window.innerHeight - 40, waterSurfaceY));
 
-      /*
-        画面外に行き過ぎないように少しだけ制限。
-      */
-      waterSurfaceY = Math.max(-80, Math.min(window.innerHeight + 40, waterSurfaceY));
+      underwaterArea.style.top = waterSurfaceY + "px";
+      waterSurfaceBand.style.top = (waterSurfaceY - 42) + "px";
 
-      floodVolume.style.top = waterSurfaceY + "px";
-
-      /*
-        水位が目線より高い場合は、全体を水中っぽくする。
-      */
       if (h <= EYE_HEIGHT_METERS) {
         globalUnderwater.style.opacity = "0";
       } else {
         const ratio = Math.min(1, (h - EYE_HEIGHT_METERS) / 2.5);
-        const opacity = 0.08 + ratio * 0.28;
+        const opacity = 0.06 + ratio * 0.20;
         globalUnderwater.style.opacity = opacity.toFixed(3);
       }
 
@@ -623,7 +620,7 @@
           try {
             await video.play();
             startButton.classList.add("hidden");
-            setDebug("カメラ起動OK / 床基準版を表示中");
+            setDebug("カメラ起動OK / 水面境界表現を表示中");
           } catch (e) {
             setDebug("video play失敗：" + e.name);
           }
