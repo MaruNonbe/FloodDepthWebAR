@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR - Recovery</title>
+  <title>Flood Depth WebAR - Two Point Calibration Stable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
   <style>
@@ -39,6 +39,23 @@
       border-radius: 10px;
       font-size: 12px;
       white-space: pre-wrap;
+    }
+
+    #globalUnderwater {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(210,245,255,0.02),
+          rgba(120,220,255,0.10),
+          rgba(70,190,245,0.18)
+        );
+      backdrop-filter: blur(0.8px) saturate(1.05);
+      transition: opacity 0.18s ease-out;
     }
 
     #underwaterArea {
@@ -234,23 +251,6 @@
       transform: translateY(-50%);
     }
 
-    #globalUnderwater {
-      position: fixed;
-      inset: 0;
-      z-index: 4;
-      pointer-events: none;
-      opacity: 0;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(210,245,255,0.02),
-          rgba(120,220,255,0.10),
-          rgba(70,190,245,0.18)
-        );
-      backdrop-filter: blur(0.8px) saturate(1.05);
-      transition: opacity 0.18s ease-out;
-    }
-
     #topBar {
       position: fixed;
       top: 12px;
@@ -280,6 +280,31 @@
       box-shadow: 0 8px 26px rgba(0,0,0,0.35);
       max-height: 54vh;
       overflow-y: auto;
+    }
+
+    #ui.panel-hidden {
+      display: none;
+    }
+
+    #showPanelButton {
+      position: fixed;
+      right: 14px;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      z-index: 30;
+      display: none;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 16px;
+      color: #fff;
+      background: rgba(0, 140, 230, 0.92);
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+    }
+
+    #showPanelButton.visible {
+      display: block;
     }
 
     #title {
@@ -336,7 +361,8 @@
 
     #presetButtons,
     #calibrationButtons,
-    #adjustButtons {
+    #adjustButtons,
+    #panelButtons {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
@@ -427,13 +453,14 @@
   <div id="topBar">
     ①十字を床に合わせて「床0mを設定」<br>
     ②十字を2m高さに合わせて「2m基準を設定」<br>
-    ③2.0mを押すと、水面ラインが2m基準に合います。
+    ③設定後は「設定パネルを隠す」で画面を広く使えます。
   </div>
 
   <button id="startButton">カメラを開始</button>
+  <button id="showPanelButton">設定</button>
 
   <div id="ui">
-    <div id="title">2点基準 浸水深さWebAR 復旧版</div>
+    <div id="title">2点基準 浸水深さWebAR</div>
 
     <div class="row">
       <label for="heightSlider">浸水高さ</label>
@@ -468,8 +495,13 @@
 
     <div id="debug">状態：ページ読込OK</div>
 
+    <div id="panelButtons">
+      <button id="hidePanelButton" class="sub">設定パネルを隠す</button>
+    </div>
+
     <div id="basisInfo">
       床0mと2m基準の2点から、画面上の1mあたりの高さを自動計算します。<br>
+      2.0mを押したとき、水面ラインが2m基準ラインと合うのが正しい動きです。<br>
       ※自動床検出ではなく、手動キャリブレーション方式です。
     </div>
   </div>
@@ -513,6 +545,10 @@
     const floorDownButton = document.getElementById("floorDownButton");
     const refUpButton = document.getElementById("refUpButton");
     const refDownButton = document.getElementById("refDownButton");
+
+    const hidePanelButton = document.getElementById("hidePanelButton");
+    const showPanelButton = document.getElementById("showPanelButton");
+    const uiPanel = document.getElementById("ui");
 
     const debug = document.getElementById("debug");
 
@@ -577,6 +613,17 @@
       updateFloodHeight();
     }
 
+    function hidePanel() {
+      uiPanel.classList.add("panel-hidden");
+      showPanelButton.classList.add("visible");
+    }
+
+    function showPanel() {
+      uiPanel.classList.remove("panel-hidden");
+      showPanelButton.classList.remove("visible");
+      setDebug("設定パネルを再表示しました");
+    }
+
     function setFloorToCenter() {
       floorY = Math.round(window.innerHeight / 2);
 
@@ -595,10 +642,14 @@
         setDebug("2m基準が床0mに近すぎます。床より上に合わせてください");
         ref2mY = floorY - 120;
       } else {
-        setDebug("2m基準を設定しました");
+        setDebug("2m基準を設定しました。パネルを非表示にします");
       }
 
       updateFloodHeight();
+
+      setTimeout(function () {
+        hidePanel();
+      }, 800);
     }
 
     function moveFloor(deltaPx) {
@@ -686,6 +737,13 @@
     demoMid.addEventListener("click", function () { setHeight(1.0); });
     demoHigh.addEventListener("click", function () { setHeight(2.0); });
     demoMax.addEventListener("click", function () { setHeight(3.0); });
+
+    hidePanelButton.addEventListener("click", function () {
+      hidePanel();
+      setDebug("設定パネルを非表示にしました");
+    });
+
+    showPanelButton.addEventListener("click", showPanel);
 
     window.addEventListener("resize", function () {
       floorY = Math.round(Math.min(floorY, window.innerHeight - 40));
