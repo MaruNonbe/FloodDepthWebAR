@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR Debug</title>
+  <title>Flood Depth WebAR Simulator</title>
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
@@ -11,287 +11,340 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      min-height: 100%;
-      background: #ffffff;
-      color: #111111;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    body {
-      padding: 16px;
-      box-sizing: border-box;
-    }
-
-    h1 {
-      font-size: 20px;
-      margin: 0 0 12px;
-      color: #003a5c;
-    }
-
-    .card {
-      background: #f1f7fb;
-      border: 1px solid #cfe4f2;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .ok {
-      color: #007a3d;
-      font-weight: 700;
-    }
-
-    .ng {
-      color: #c00000;
-      font-weight: 700;
-    }
-
-    .warn {
-      color: #b36b00;
-      font-weight: 700;
-    }
-
-    button {
-      width: 100%;
-      border: none;
-      border-radius: 12px;
-      padding: 14px;
-      margin: 8px 0;
-      background: #008ee6;
-      color: white;
-      font-size: 16px;
-      font-weight: 700;
-    }
-
     #camera {
-      width: 100%;
-      max-height: 55vh;
-      background: #222;
-      border-radius: 12px;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
       object-fit: cover;
-      display: block;
-      margin-top: 12px;
+      background: #000;
+      z-index: 1;
     }
 
-    #log {
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: #111;
-      color: #e9f7ff;
-      padding: 12px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      min-height: 120px;
+    /* 画面全体の淡い水色補正 */
+    #blueTint {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background: rgba(80, 200, 255, 0.08);
     }
 
-    #waterDemo {
-      position: relative;
-      height: 180px;
-      overflow: hidden;
-      background: linear-gradient(to bottom, #bfe8ff, #eaf8ff);
-      border-radius: 12px;
-      border: 1px solid #cfe4f2;
-      margin-top: 12px;
-    }
-
+    /* 水面以下の表現 */
     #waterLayer {
-      position: absolute;
+      position: fixed;
       left: 0;
       right: 0;
       bottom: 0;
-      height: 45%;
-      background: linear-gradient(
-        to bottom,
-        rgba(100, 210, 255, 0.45),
-        rgba(20, 150, 220, 0.62)
-      );
-      border-top: 2px solid rgba(255,255,255,0.9);
+      height: 20%;
+      z-index: 5;
+      pointer-events: none;
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(150, 235, 255, 0.22) 0%,
+          rgba(70, 200, 245, 0.38) 20%,
+          rgba(20, 145, 210, 0.55) 100%
+        );
+
+      border-top: 3px solid rgba(240, 255, 255, 0.95);
+      box-shadow:
+        0 -8px 20px rgba(180, 240, 255, 0.55),
+        inset 0 20px 35px rgba(255, 255, 255, 0.16);
+
+      backdrop-filter: blur(1.2px) saturate(1.12);
+      transition: height 0.18s ease-out;
+      overflow: hidden;
     }
 
+    /* 波の白い揺らぎ */
     #waterLayer::before {
       content: "";
       position: absolute;
-      left: -20%;
-      right: -20%;
-      top: -18px;
-      height: 34px;
+      left: -25%;
+      right: -25%;
+      top: -22px;
+      height: 46px;
+
       background:
-        radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.8), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.6), rgba(255,255,255,0) 60%),
-        radial-gradient(ellipse at 80% 55%, rgba(255,255,255,0.7), rgba(255,255,255,0) 60%);
-      animation: wave 3s ease-in-out infinite;
+        radial-gradient(ellipse at 10% 50%, rgba(255,255,255,0.9), rgba(255,255,255,0.0) 58%),
+        radial-gradient(ellipse at 30% 45%, rgba(255,255,255,0.65), rgba(255,255,255,0.0) 60%),
+        radial-gradient(ellipse at 55% 55%, rgba(255,255,255,0.8), rgba(255,255,255,0.0) 58%),
+        radial-gradient(ellipse at 80% 48%, rgba(255,255,255,0.72), rgba(255,255,255,0.0) 60%);
+
+      opacity: 0.95;
+      animation: waveMove 3.2s ease-in-out infinite;
     }
 
-    @keyframes wave {
-      0% { transform: translateX(0) translateY(0); }
-      50% { transform: translateX(24px) translateY(4px); }
-      100% { transform: translateX(0) translateY(0); }
+    /* 水中のゆらぎ線 */
+    #waterLayer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+
+      background:
+        repeating-linear-gradient(
+          165deg,
+          rgba(255,255,255,0.0) 0px,
+          rgba(255,255,255,0.0) 22px,
+          rgba(255,255,255,0.16) 28px,
+          rgba(255,255,255,0.0) 42px
+        );
+
+      opacity: 0.35;
+      animation: shimmer 5.5s linear infinite;
+    }
+
+    @keyframes waveMove {
+      0% {
+        transform: translateX(0) translateY(0);
+      }
+      50% {
+        transform: translateX(32px) translateY(5px);
+      }
+      100% {
+        transform: translateX(0) translateY(0);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        transform: translateX(-35px);
+      }
+      100% {
+        transform: translateX(35px);
+      }
+    }
+
+    #topBar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(0, 25, 45, 0.68);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.45;
+      backdrop-filter: blur(8px);
+    }
+
+    #ui {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 16px;
+      z-index: 20;
+      color: white;
+      background: rgba(0, 28, 48, 0.78);
+      padding: 14px;
+      border-radius: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 26px rgba(0,0,0,0.35);
+    }
+
+    #title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    label {
+      font-size: 14px;
+      white-space: nowrap;
     }
 
     input[type="range"] {
       width: 100%;
     }
+
+    #heightText {
+      min-width: 62px;
+      text-align: right;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: #fff;
+      background: #008ee6;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    #startButton {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 40;
+      border: none;
+      border-radius: 999px;
+      padding: 16px 24px;
+      background: #008ee6;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.42);
+    }
+
+    #startButton.hidden {
+      display: none;
+    }
+
+    #debug {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.85;
+    }
   </style>
 </head>
 
 <body>
-  <h1>Flood Depth WebAR 診断版</h1>
+  <video id="camera" autoplay playsinline muted></video>
 
-  <div class="card">
-    <div id="pageStatus">ページ読込中...</div>
+  <div id="blueTint"></div>
+  <div id="waterLayer"></div>
+
+  <div id="topBar">
+    スマホを周囲に向けてください。<br>
+    浸水高さを変えると、画面内の水面ラインが上下します。
   </div>
 
-  <div class="card">
-    <button id="cameraButton">カメラ起動テスト</button>
-    <video id="camera" autoplay playsinline muted></video>
-  </div>
+  <button id="startButton">カメラを開始</button>
 
-  <div class="card">
-    <div>浸水高さテスト：<span id="heightText">1.0m</span></div>
-    <input id="heightSlider" type="range" min="0" max="5" step="0.1" value="1.0" />
+  <div id="ui">
+    <div id="title">浸水深さWebARシミュレーション</div>
 
-    <div id="waterDemo">
-      <div id="waterLayer"></div>
+    <div class="row">
+      <label for="heightSlider">浸水高さ</label>
+      <input id="heightSlider" type="range" min="0" max="5" step="0.1" value="1.0" />
+      <div id="heightText">1.0m</div>
     </div>
-  </div>
 
-  <div class="card">
-    <strong>診断ログ</strong>
-    <div id="log"></div>
+    <div class="row">
+      <button id="demoLow">0.5m</button>
+      <button id="demoMid">1.0m</button>
+      <button id="demoHigh">2.0m</button>
+      <button id="demoMax">3.0m</button>
+    </div>
+
+    <div id="debug">状態：カメラ起動前</div>
   </div>
 
   <script>
-    const pageStatus = document.getElementById("pageStatus");
-    const logBox = document.getElementById("log");
-    const cameraButton = document.getElementById("cameraButton");
     const video = document.getElementById("camera");
-
+    const startButton = document.getElementById("startButton");
     const heightSlider = document.getElementById("heightSlider");
     const heightText = document.getElementById("heightText");
     const waterLayer = document.getElementById("waterLayer");
+    const debug = document.getElementById("debug");
 
-    function log(message) {
-      const now = new Date().toLocaleTimeString();
-      logBox.textContent += "[" + now + "] " + message + "\n";
+    const demoLow = document.getElementById("demoLow");
+    const demoMid = document.getElementById("demoMid");
+    const demoHigh = document.getElementById("demoHigh");
+    const demoMax = document.getElementById("demoMax");
+
+    function setDebug(message) {
+      debug.textContent = "状態：" + message;
       console.log(message);
-    }
-
-    window.addEventListener("error", function(event) {
-      log("JS ERROR: " + event.message + " / " + event.filename + ":" + event.lineno);
-    });
-
-    window.addEventListener("unhandledrejection", function(event) {
-      log("PROMISE ERROR: " + event.reason);
-    });
-
-    function checkPage() {
-      pageStatus.innerHTML = "<span class='ok'>ページは読み込まれています。</span>";
-
-      log("ページ読み込みOK");
-      log("URL: " + location.href);
-      log("protocol: " + location.protocol);
-      log("host: " + location.host);
-      log("userAgent: " + navigator.userAgent);
-
-      if (location.protocol === "https:") {
-        log("HTTPS: OK");
-      } else if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        log("localhost: OK");
-      } else {
-        log("HTTPS: NG。カメラはHTTPSでないと起動できない可能性が高いです。");
-      }
-
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        log("getUserMedia: OK");
-      } else {
-        log("getUserMedia: NG。このブラウザではカメラAPIが使えません。");
-      }
-
-      if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: "camera" })
-          .then(function(result) {
-            log("camera permission state: " + result.state);
-          })
-          .catch(function(error) {
-            log("camera permission query failed: " + error.name);
-          });
-      } else {
-        log("Permissions API: 使用不可。ただしSafariでは普通です。");
-      }
-    }
-
-    async function startCamera() {
-      log("カメラ起動ボタンが押されました。");
-
-      try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          log("カメラAPIがありません。");
-          alert("このブラウザはカメラAPIに対応していません。SafariまたはChromeで開いてください。");
-          return;
-        }
-
-        const constraints = {
-          video: {
-            facingMode: "environment"
-          },
-          audio: false
-        };
-
-        log("getUserMedia開始");
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        log("getUserMedia成功");
-
-        video.srcObject = stream;
-
-        video.onloadedmetadata = function() {
-          log("video metadata loaded");
-          video.play()
-            .then(function() {
-              log("video play OK");
-              pageStatus.innerHTML = "<span class='ok'>カメラ起動OKです。</span>";
-            })
-            .catch(function(error) {
-              log("video play error: " + error.name + " / " + error.message);
-            });
-        };
-
-      } catch (error) {
-        log("カメラ起動失敗: " + error.name + " / " + error.message);
-
-        let message = "カメラ起動に失敗しました。";
-
-        if (error.name === "NotAllowedError") {
-          message = "カメラが許可されていません。ブラウザ設定でカメラ許可を確認してください。";
-        }
-
-        if (error.name === "NotFoundError") {
-          message = "カメラが見つかりません。別の端末またはブラウザで確認してください。";
-        }
-
-        if (error.name === "NotReadableError") {
-          message = "他のアプリがカメラを使用中の可能性があります。カメラアプリ等を閉じてください。";
-        }
-
-        pageStatus.innerHTML = "<span class='ng'>" + message + "</span>";
-        alert(message + "\n\n" + error.name + "\n" + error.message);
-      }
     }
 
     function updateWaterHeight() {
       const h = parseFloat(heightSlider.value);
       heightText.textContent = h.toFixed(1) + "m";
 
-      const percent = Math.min(95, Math.max(0, h / 5 * 95));
+      /*
+        試作版：
+        0m〜5m を画面下からの高さに変換。
+        5mで画面の約92%まで水が上がる。
+      */
+      const percent = Math.min(92, Math.max(0, h / 5 * 92));
+
       waterLayer.style.height = percent + "%";
     }
 
-    cameraButton.addEventListener("click", startCamera);
+    async function startCamera() {
+      try {
+        setDebug("カメラ起動中...");
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setDebug("このブラウザではカメラAPIが使えません");
+          alert("このブラウザではカメラAPIが使えません。SafariまたはChromeで開いてください。");
+          return;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+
+        video.onloadedmetadata = async () => {
+          try {
+            await video.play();
+            startButton.classList.add("hidden");
+            setDebug("カメラ起動OK / 水面表示中");
+          } catch (e) {
+            setDebug("video play失敗：" + e.name);
+          }
+        };
+
+      } catch (error) {
+        console.error(error);
+
+        let message = "カメラ起動失敗：" + error.name;
+
+        if (error.name === "NotAllowedError") {
+          message = "カメラが許可されていません";
+        } else if (error.name === "NotFoundError") {
+          message = "カメラが見つかりません";
+        } else if (location.protocol !== "https:" && location.hostname !== "localhost") {
+          message = "HTTPSではないためカメラを起動できません";
+        }
+
+        setDebug(message);
+        alert(message);
+      }
+    }
+
+    function setHeight(value) {
+      heightSlider.value = value;
+      updateWaterHeight();
+    }
+
+    startButton.addEventListener("click", startCamera);
     heightSlider.addEventListener("input", updateWaterHeight);
 
-    checkPage();
+    demoLow.addEventListener("click", () => setHeight(0.5));
+    demoMid.addEventListener("click", () => setHeight(1.0));
+    demoHigh.addEventListener("click", () => setHeight(2.0));
+    demoMax.addEventListener("click", () => setHeight(3.0));
+
     updateWaterHeight();
   </script>
 </body>
