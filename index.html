@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Flood Depth WebAR Simulator</title>
+  <title>Flood Depth WebAR Simulator - Floor Based</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
   <style>
@@ -16,7 +16,6 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    /* カメラ映像 */
     #camera {
       position: fixed;
       inset: 0;
@@ -27,10 +26,7 @@
       z-index: 1;
     }
 
-    /*
-      体験者が水中に入った時の全画面補正
-      （水位が仮想目線 1.5m を超えたら徐々に強くする）
-    */
+    /* 水位が高いとき、水中に入った感じを出す */
     #globalUnderwater {
       position: fixed;
       inset: 0;
@@ -43,37 +39,93 @@
           to bottom,
           rgba(210, 245, 255, 0.03),
           rgba(120, 220, 255, 0.14) 45%,
-          rgba(70, 190, 245, 0.20) 100%
+          rgba(70, 190, 245, 0.22) 100%
         );
-      backdrop-filter: blur(1.3px) saturate(1.08);
+      backdrop-filter: blur(1.2px) saturate(1.08);
     }
 
-    /*
-      浸水直方体全体
-      体験者がその中心に立っている想定なので、
-      水は左右いっぱいに広がる
-    */
+    /* 床0mライン */
+    #floorLine {
+      position: fixed;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 240, 120, 0.95);
+      z-index: 18;
+      pointer-events: none;
+      box-shadow: 0 0 10px rgba(255, 240, 120, 0.9);
+    }
+
+    #floorLabel {
+      position: fixed;
+      left: 14px;
+      z-index: 19;
+      pointer-events: none;
+      color: #fff6a0;
+      background: rgba(0,0,0,0.45);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* 画面中央の床合わせ用十字 */
+    #crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 42px;
+      height: 42px;
+      transform: translate(-50%, -50%);
+      z-index: 17;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 0 8px rgba(0,0,0,0.6);
+      border-radius: 999px;
+    }
+
+    #crosshair::before {
+      left: 50%;
+      top: 0;
+      width: 2px;
+      height: 42px;
+      transform: translateX(-50%);
+    }
+
+    #crosshair::after {
+      left: 0;
+      top: 50%;
+      width: 42px;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+
+    /* 床基準から立ち上がる水の直方体 */
     #floodVolume {
       position: fixed;
       left: 0;
       right: 0;
+      top: 50%;
       bottom: 0;
-      height: 28vh;
       z-index: 6;
       pointer-events: none;
-      transition: height 0.18s ease-out;
+      overflow: visible;
+      transition: top 0.12s ease-out;
     }
 
-    /*
-      水面以下の本体
-      画面いっぱいに広げて「水に囲まれている」感じを出す
-    */
     #floodBody {
       position: absolute;
       left: 0;
       right: 0;
-      bottom: 0;
       top: 0;
+      bottom: 0;
       overflow: hidden;
 
       background:
@@ -81,19 +133,18 @@
           to bottom,
           rgba(180, 238, 255, 0.12) 0%,
           rgba(120, 220, 250, 0.18) 22%,
-          rgba(65, 190, 235, 0.26) 50%,
-          rgba(30, 155, 220, 0.36) 78%,
-          rgba(10, 120, 190, 0.48) 100%
+          rgba(65, 190, 235, 0.28) 50%,
+          rgba(30, 155, 220, 0.40) 78%,
+          rgba(10, 120, 190, 0.52) 100%
         );
 
-      box-shadow:
-        inset 0 14px 18px rgba(255,255,255,0.04),
-        inset 0 -18px 28px rgba(0,0,0,0.08);
+      backdrop-filter: blur(1.4px) saturate(1.08);
 
-      backdrop-filter: blur(1.6px) saturate(1.06);
+      box-shadow:
+        inset 0 14px 18px rgba(255,255,255,0.05),
+        inset 0 -18px 28px rgba(0,0,0,0.08);
     }
 
-    /* 水中の淡い水色 */
     #underwaterTint {
       position: absolute;
       inset: 0;
@@ -101,13 +152,12 @@
         linear-gradient(
           to bottom,
           rgba(230, 248, 255, 0.05),
-          rgba(140, 225, 255, 0.12) 35%,
-          rgba(75, 195, 245, 0.18) 100%
+          rgba(140, 225, 255, 0.13) 35%,
+          rgba(75, 195, 245, 0.20) 100%
         );
       mix-blend-mode: screen;
     }
 
-    /* 水中のやわらかい霞 */
     #underwaterMist {
       position: absolute;
       inset: 0;
@@ -115,11 +165,7 @@
       backdrop-filter: blur(1px);
     }
 
-    /*
-      水面そのもの
-      前方だけの台形ではなく、体験者の周囲に広がる水面として
-      横に広く、水平に見せる
-    */
+    /* 直方体の上面＝水面 */
     #waterSurface {
       position: absolute;
       left: 0;
@@ -139,29 +185,27 @@
         );
 
       box-shadow:
-        0 0 20px rgba(220, 250, 255, 0.16),
+        0 0 20px rgba(220, 250, 255, 0.18),
         inset 0 10px 14px rgba(255,255,255,0.08);
     }
 
-    /* 水面の明るい光だまり */
     #waterSurface .surfaceGlow {
       position: absolute;
       inset: 0;
       background:
         radial-gradient(
           ellipse at 50% 35%,
-          rgba(255,255,255,0.42) 0%,
+          rgba(255,255,255,0.46) 0%,
           rgba(255,255,255,0.00) 42%
         ),
         linear-gradient(
           to bottom,
-          rgba(255,255,255,0.10),
+          rgba(255,255,255,0.12),
           rgba(255,255,255,0.00) 35%
         );
       opacity: 0.95;
     }
 
-    /* 水面の白い反射ライン */
     #waterSurface .surfaceLine {
       position: absolute;
       left: 8%;
@@ -176,7 +220,6 @@
       animation: surfaceLineMove 2.8s ease-in-out infinite;
     }
 
-    /* 波 */
     .waterWave {
       position: absolute;
       left: 3%;
@@ -206,7 +249,6 @@
       animation: waveMove2 4.8s ease-in-out infinite;
     }
 
-    /* 水面のキラキラ反射 */
     .waterRipple {
       position: absolute;
       inset: 0;
@@ -238,7 +280,6 @@
       animation: shimmer2 7.0s linear infinite;
     }
 
-    /* 上部説明 */
     #topBar {
       position: fixed;
       top: 12px;
@@ -254,7 +295,6 @@
       backdrop-filter: blur(8px);
     }
 
-    /* 下部UI */
     #ui {
       position: fixed;
       left: 12px;
@@ -262,7 +302,7 @@
       bottom: 16px;
       z-index: 20;
       color: white;
-      background: rgba(0, 28, 48, 0.78);
+      background: rgba(0, 28, 48, 0.80);
       padding: 14px;
       border-radius: 18px;
       backdrop-filter: blur(10px);
@@ -291,7 +331,8 @@
       width: 100%;
     }
 
-    #heightText {
+    #heightText,
+    #scaleText {
       min-width: 62px;
       text-align: right;
       font-weight: 700;
@@ -308,7 +349,12 @@
       font-size: 14px;
     }
 
-    #presetButtons {
+    button.sub {
+      background: rgba(255,255,255,0.18);
+    }
+
+    #presetButtons,
+    #floorButtons {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
@@ -338,13 +384,13 @@
     #debug {
       margin-top: 8px;
       font-size: 12px;
-      opacity: 0.85;
+      opacity: 0.88;
     }
 
     #basisInfo {
       margin-top: 6px;
       font-size: 11px;
-      opacity: 0.8;
+      opacity: 0.82;
       line-height: 1.45;
     }
 
@@ -383,6 +429,10 @@
 
   <div id="globalUnderwater"></div>
 
+  <div id="floorLine"></div>
+  <div id="floorLabel">床 0m</div>
+  <div id="crosshair"></div>
+
   <div id="floodVolume">
     <div id="floodBody">
       <div id="underwaterTint"></div>
@@ -400,14 +450,14 @@
   </div>
 
   <div id="topBar">
-    スマホを周囲に向けてください。<br>
-    体験者が浸水域の中心に立っている想定で、水面が周囲に広がるように表示します。
+    画面中央の十字を床・地面に合わせて「床を中央に設定」を押してください。<br>
+    その床0mから指定した浸水高さの水面を表示します。
   </div>
 
   <button id="startButton">カメラを開始</button>
 
   <div id="ui">
-    <div id="title">浸水深さWebARシミュレーション</div>
+    <div id="title">床基準 浸水深さWebAR</div>
 
     <div class="row">
       <label for="heightSlider">浸水高さ</label>
@@ -422,20 +472,46 @@
       <button id="demoMax">3.0m</button>
     </div>
 
+    <div id="floorButtons">
+      <button id="setFloorButton">床を中央に設定</button>
+      <button id="floorUpButton" class="sub">床↑</button>
+      <button id="floorDownButton" class="sub">床↓</button>
+    </div>
+
+    <div class="row">
+      <label for="scaleSlider">表示スケール</label>
+      <input id="scaleSlider" type="range" min="60" max="220" step="5" value="120" />
+      <div id="scaleText">120</div>
+    </div>
+
     <div id="debug">状態：カメラ起動前</div>
 
     <div id="basisInfo">
-      基準：現在は簡易表示です。画面下側を床0mの仮基準とし、体験者が浸水直方体の中心に立っている想定で表示しています。
+      基準：画面中央の十字を床に合わせて設定した位置を「床0m」とします。<br>
+      ※ブラウザ版のため、実測床検出ではなく、体験者が指定した床基準から水位を計算する方式です。
     </div>
   </div>
 
   <script>
     const video = document.getElementById("camera");
     const startButton = document.getElementById("startButton");
+
     const heightSlider = document.getElementById("heightSlider");
     const heightText = document.getElementById("heightText");
+
+    const scaleSlider = document.getElementById("scaleSlider");
+    const scaleText = document.getElementById("scaleText");
+
     const floodVolume = document.getElementById("floodVolume");
     const globalUnderwater = document.getElementById("globalUnderwater");
+
+    const floorLine = document.getElementById("floorLine");
+    const floorLabel = document.getElementById("floorLabel");
+
+    const setFloorButton = document.getElementById("setFloorButton");
+    const floorUpButton = document.getElementById("floorUpButton");
+    const floorDownButton = document.getElementById("floorDownButton");
+
     const debug = document.getElementById("debug");
 
     const demoLow = document.getElementById("demoLow");
@@ -443,7 +519,22 @@
     const demoHigh = document.getElementById("demoHigh");
     const demoMax = document.getElementById("demoMax");
 
-    // 簡易的な仮想目線高さ（床から）
+    /*
+      初期床位置。
+      画面下寄りを仮の床0mにしておく。
+      ユーザーが「床を中央に設定」を押すと更新される。
+    */
+    let floorY = Math.round(window.innerHeight * 0.72);
+
+    /*
+      1mあたり何px上に水面を上げるか。
+      端末・構図によって見え方が変わるので調整可能にする。
+    */
+    let pixelsPerMeter = parseFloat(scaleSlider.value);
+
+    /*
+      水中に入った感じを出すための仮想目線高さ。
+    */
     const EYE_HEIGHT_METERS = 1.5;
 
     function setDebug(message) {
@@ -451,20 +542,33 @@
       console.log(message);
     }
 
+    function updateFloorVisual() {
+      floorLine.style.top = floorY + "px";
+      floorLabel.style.top = Math.max(8, floorY - 26) + "px";
+    }
+
     function updateFloodHeight() {
       const h = parseFloat(heightSlider.value);
+      pixelsPerMeter = parseFloat(scaleSlider.value);
+
       heightText.textContent = h.toFixed(1) + "m";
+      scaleText.textContent = String(Math.round(pixelsPerMeter));
 
       /*
-        画面下 = 床0m の仮基準
-        0m〜5m を 10vh〜72vh に変換
+        床0mから指定水位分だけ上に水面を出す。
+        waterSurfaceY が水面位置。
       */
-      const vh = Math.min(72, Math.max(10, 10 + (h / 5) * 62));
-      floodVolume.style.height = vh + "vh";
+      let waterSurfaceY = floorY - h * pixelsPerMeter;
 
       /*
-        水位が仮想目線より高い場合は、
-        体験者が水中に入った感じを全画面に少し加える
+        画面外に行き過ぎないように少しだけ制限。
+      */
+      waterSurfaceY = Math.max(-80, Math.min(window.innerHeight + 40, waterSurfaceY));
+
+      floodVolume.style.top = waterSurfaceY + "px";
+
+      /*
+        水位が目線より高い場合は、全体を水中っぽくする。
       */
       if (h <= EYE_HEIGHT_METERS) {
         globalUnderwater.style.opacity = "0";
@@ -473,6 +577,25 @@
         const opacity = 0.08 + ratio * 0.28;
         globalUnderwater.style.opacity = opacity.toFixed(3);
       }
+
+      updateFloorVisual();
+    }
+
+    function setHeight(value) {
+      heightSlider.value = value;
+      updateFloodHeight();
+    }
+
+    function setFloorToCenter() {
+      floorY = Math.round(window.innerHeight / 2);
+      setDebug("床0mを画面中央に設定しました");
+      updateFloodHeight();
+    }
+
+    function moveFloor(deltaPx) {
+      floorY = Math.round(Math.max(40, Math.min(window.innerHeight - 40, floorY + deltaPx)));
+      setDebug("床0mラインを調整しました");
+      updateFloodHeight();
     }
 
     async function startCamera() {
@@ -500,7 +623,7 @@
           try {
             await video.play();
             startButton.classList.add("hidden");
-            setDebug("カメラ起動OK / 中心立ち位置版を表示中");
+            setDebug("カメラ起動OK / 床基準版を表示中");
           } catch (e) {
             setDebug("video play失敗：" + e.name);
           }
@@ -524,19 +647,26 @@
       }
     }
 
-    function setHeight(value) {
-      heightSlider.value = value;
-      updateFloodHeight();
-    }
-
     startButton.addEventListener("click", startCamera);
+
     heightSlider.addEventListener("input", updateFloodHeight);
+    scaleSlider.addEventListener("input", updateFloodHeight);
+
+    setFloorButton.addEventListener("click", setFloorToCenter);
+    floorUpButton.addEventListener("click", () => moveFloor(-12));
+    floorDownButton.addEventListener("click", () => moveFloor(12));
 
     demoLow.addEventListener("click", () => setHeight(0.5));
     demoMid.addEventListener("click", () => setHeight(1.0));
     demoHigh.addEventListener("click", () => setHeight(2.0));
     demoMax.addEventListener("click", () => setHeight(3.0));
 
+    window.addEventListener("resize", () => {
+      floorY = Math.round(Math.min(floorY, window.innerHeight - 40));
+      updateFloodHeight();
+    });
+
+    updateFloorVisual();
     updateFloodHeight();
   </script>
 </body>
