@@ -2,360 +2,297 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>浸水深さWebARシミュレーション</title>
+  <title>Flood Depth WebAR Debug</title>
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- AR.js -->
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
   <style>
     html, body {
       margin: 0;
-      overflow: hidden;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background: #ffffff;
+      color: #111111;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #000;
     }
 
-    #ui {
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: 16px;
-      z-index: 20;
-      background: rgba(0, 20, 35, 0.72);
-      color: white;
+    body {
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0 0 12px;
+      color: #003a5c;
+    }
+
+    .card {
+      background: #f1f7fb;
+      border: 1px solid #cfe4f2;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .ok {
+      color: #007a3d;
+      font-weight: 700;
+    }
+
+    .ng {
+      color: #c00000;
+      font-weight: 700;
+    }
+
+    .warn {
+      color: #b36b00;
+      font-weight: 700;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
       padding: 14px;
-      border-radius: 14px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-    }
-
-    #ui h1 {
+      margin: 8px 0;
+      background: #008ee6;
+      color: white;
       font-size: 16px;
-      margin: 0 0 8px;
+      font-weight: 700;
     }
 
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 8px;
+    #camera {
+      width: 100%;
+      max-height: 55vh;
+      background: #222;
+      border-radius: 12px;
+      object-fit: cover;
+      display: block;
+      margin-top: 12px;
     }
 
-    label {
-      font-size: 14px;
-      white-space: nowrap;
+    #log {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #111;
+      color: #e9f7ff;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 120px;
+    }
+
+    #waterDemo {
+      position: relative;
+      height: 180px;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #bfe8ff, #eaf8ff);
+      border-radius: 12px;
+      border: 1px solid #cfe4f2;
+      margin-top: 12px;
+    }
+
+    #waterLayer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 45%;
+      background: linear-gradient(
+        to bottom,
+        rgba(100, 210, 255, 0.45),
+        rgba(20, 150, 220, 0.62)
+      );
+      border-top: 2px solid rgba(255,255,255,0.9);
+    }
+
+    #waterLayer::before {
+      content: "";
+      position: absolute;
+      left: -20%;
+      right: -20%;
+      top: -18px;
+      height: 34px;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.8), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.6), rgba(255,255,255,0) 60%),
+        radial-gradient(ellipse at 80% 55%, rgba(255,255,255,0.7), rgba(255,255,255,0) 60%);
+      animation: wave 3s ease-in-out infinite;
+    }
+
+    @keyframes wave {
+      0% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(24px) translateY(4px); }
+      100% { transform: translateX(0) translateY(0); }
     }
 
     input[type="range"] {
       width: 100%;
     }
-
-    #heightValue {
-      font-weight: bold;
-      min-width: 58px;
-      text-align: right;
-    }
-
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 12px;
-      background: #00a8ff;
-      color: #fff;
-      font-weight: 700;
-    }
-
-    button.off {
-      background: #555;
-    }
-
-    #guide {
-      position: fixed;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      z-index: 20;
-      color: white;
-      background: rgba(0,0,0,0.45);
-      padding: 10px 12px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    /*
-      水面より下に入った時の水色フィルター。
-      試作版では「水中表示」ボタンでON/OFF。
-    */
-    #underwaterFilter {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      pointer-events: none;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(100, 210, 255, 0.10),
-          rgba(50, 180, 230, 0.32)
-        );
-      mix-blend-mode: screen;
-      opacity: 0;
-      transition: opacity 0.35s ease;
-    }
-
-    #underwaterFilter.active {
-      opacity: 1;
-    }
-
-    /*
-      水中の霞み感。
-    */
-    #underwaterMist {
-      position: fixed;
-      inset: 0;
-      z-index: 11;
-      pointer-events: none;
-      background: rgba(120, 220, 255, 0.12);
-      backdrop-filter: blur(1.6px) saturate(1.15);
-      opacity: 0;
-      transition: opacity 0.35s ease;
-    }
-
-    #underwaterMist.active {
-      opacity: 1;
-    }
   </style>
 </head>
 
 <body>
-  <div id="guide">
-    スマホを周囲に向けてください。<br>
-    スライダーで浸水高さを変更すると、その高さに半透明の水面が表示されます。
+  <h1>Flood Depth WebAR 診断版</h1>
+
+  <div class="card">
+    <div id="pageStatus">ページ読込中...</div>
   </div>
 
-  <div id="underwaterFilter"></div>
-  <div id="underwaterMist"></div>
+  <div class="card">
+    <button id="cameraButton">カメラ起動テスト</button>
+    <video id="camera" autoplay playsinline muted></video>
+  </div>
 
-  <div id="ui">
-    <h1>浸水深さシミュレーション</h1>
+  <div class="card">
+    <div>浸水高さテスト：<span id="heightText">1.0m</span></div>
+    <input id="heightSlider" type="range" min="0" max="5" step="0.1" value="1.0" />
 
-    <div class="row">
-      <label for="heightSlider">浸水高さ</label>
-      <input id="heightSlider" type="range" min="0" max="5" step="0.1" value="1.0">
-      <div id="heightValue">1.0m</div>
-    </div>
-
-    <div class="row">
-      <button id="underwaterBtn" class="off">水中表示 OFF</button>
-      <button id="resetBtn">水面を正面に配置</button>
+    <div id="waterDemo">
+      <div id="waterLayer"></div>
     </div>
   </div>
 
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="alpha: true; antialias: true; colorManagement: true;"
-    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
-  >
-
-    <!-- カメラ -->
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-
-    <!-- 広い水面 -->
-    <a-entity
-      id="water"
-      position="0 1 0"
-      rotation="-90 0 0"
-      geometry="
-        primitive: plane;
-        width: 220;
-        height: 220;
-        segmentsWidth: 120;
-        segmentsHeight: 120;
-      "
-      material="
-        color: #48c8ff;
-        transparent: true;
-        opacity: 0.42;
-        roughness: 0.18;
-        metalness: 0.0;
-        side: double;
-      "
-      wave-water
-    ></a-entity>
-
-    <!-- 水面の光っぽい薄い板。少し上に重ねる -->
-    <a-entity
-      id="waterHighlight"
-      position="0 1.015 0"
-      rotation="-90 0 0"
-      geometry="
-        primitive: plane;
-        width: 220;
-        height: 220;
-        segmentsWidth: 40;
-        segmentsHeight: 40;
-      "
-      material="
-        color: #ffffff;
-        transparent: true;
-        opacity: 0.10;
-        side: double;
-      "
-    ></a-entity>
-
-    <!-- 高さ目安の縦ライン -->
-    <a-entity id="heightMarker" position="-1.2 0.5 -3">
-      <a-cylinder
-        radius="0.015"
-        height="1"
-        color="#ffffff"
-        opacity="0.7"
-        transparent="true"
-        position="0 0.5 0"
-      ></a-cylinder>
-
-      <a-text
-        id="heightText"
-        value="1.0m"
-        color="#ffffff"
-        align="center"
-        width="2.5"
-        position="0 1.15 0"
-        look-at-camera
-      ></a-text>
-    </a-entity>
-
-  </a-scene>
+  <div class="card">
+    <strong>診断ログ</strong>
+    <div id="log"></div>
+  </div>
 
   <script>
-    /*
-      水面を少し波立たせるコンポーネント
-    */
-    AFRAME.registerComponent("wave-water", {
-      schema: {
-        amplitude: { type: "number", default: 0.055 },
-        speed: { type: "number", default: 0.0016 },
-        frequency: { type: "number", default: 0.18 }
-      },
-
-      init: function () {
-        this.mesh = this.el.getObject3D("mesh");
-        this.ready = false;
-
-        this.el.addEventListener("loaded", () => {
-          this.mesh = this.el.getObject3D("mesh");
-          if (!this.mesh || !this.mesh.geometry) return;
-
-          const position = this.mesh.geometry.attributes.position;
-          this.base = [];
-
-          for (let i = 0; i < position.count; i++) {
-            this.base.push({
-              x: position.getX(i),
-              y: position.getY(i),
-              z: position.getZ(i)
-            });
-          }
-
-          this.ready = true;
-        });
-      },
-
-      tick: function (time) {
-        if (!this.ready || !this.mesh) return;
-
-        const geometry = this.mesh.geometry;
-        const position = geometry.attributes.position;
-
-        const amp = this.data.amplitude;
-        const freq = this.data.frequency;
-        const speed = this.data.speed;
-
-        for (let i = 0; i < position.count; i++) {
-          const p = this.base[i];
-
-          const wave1 = Math.sin((p.x * freq) + time * speed);
-          const wave2 = Math.cos((p.y * freq * 1.3) + time * speed * 0.8);
-          const z = (wave1 + wave2) * amp;
-
-          position.setZ(i, z);
-        }
-
-        position.needsUpdate = true;
-        geometry.computeVertexNormals();
-      }
-    });
-
-    /*
-      テキストが常にカメラを向く
-    */
-    AFRAME.registerComponent("look-at-camera", {
-      tick: function () {
-        const camera = document.querySelector("[camera]");
-        if (!camera) return;
-
-        const camObj = camera.object3D;
-        this.el.object3D.lookAt(camObj.position);
-      }
-    });
+    const pageStatus = document.getElementById("pageStatus");
+    const logBox = document.getElementById("log");
+    const cameraButton = document.getElementById("cameraButton");
+    const video = document.getElementById("camera");
 
     const heightSlider = document.getElementById("heightSlider");
-    const heightValue = document.getElementById("heightValue");
-    const water = document.getElementById("water");
-    const waterHighlight = document.getElementById("waterHighlight");
-    const heightMarker = document.getElementById("heightMarker");
     const heightText = document.getElementById("heightText");
+    const waterLayer = document.getElementById("waterLayer");
 
-    const underwaterBtn = document.getElementById("underwaterBtn");
-    const underwaterFilter = document.getElementById("underwaterFilter");
-    const underwaterMist = document.getElementById("underwaterMist");
-    const resetBtn = document.getElementById("resetBtn");
-
-    let underwater = false;
-
-    function updateFloodHeight() {
-      const h = parseFloat(heightSlider.value);
-
-      heightValue.textContent = h.toFixed(1) + "m";
-
-      water.setAttribute("position", `0 ${h} 0`);
-      waterHighlight.setAttribute("position", `0 ${h + 0.015} 0`);
-
-      heightMarker.setAttribute("position", `-1.2 ${h / 2} -3`);
-      heightMarker.querySelector("a-cylinder").setAttribute("height", h);
-      heightMarker.querySelector("a-cylinder").setAttribute("position", `0 ${h / 2} 0`);
-      heightText.setAttribute("position", `0 ${h + 0.18} 0`);
-      heightText.setAttribute("value", h.toFixed(1) + "m");
+    function log(message) {
+      const now = new Date().toLocaleTimeString();
+      logBox.textContent += "[" + now + "] " + message + "\n";
+      console.log(message);
     }
 
-    heightSlider.addEventListener("input", updateFloodHeight);
-
-    underwaterBtn.addEventListener("click", () => {
-      underwater = !underwater;
-
-      underwaterFilter.classList.toggle("active", underwater);
-      underwaterMist.classList.toggle("active", underwater);
-
-      underwaterBtn.textContent = underwater ? "水中表示 ON" : "水中表示 OFF";
-      underwaterBtn.classList.toggle("off", !underwater);
+    window.addEventListener("error", function(event) {
+      log("JS ERROR: " + event.message + " / " + event.filename + ":" + event.lineno);
     });
 
-    /*
-      水面をカメラ正面側に見えるように再配置する簡易処理。
-      本格版では、GPS位置・方位・床検出・マーカーなどで基準点を決める。
-    */
-    resetBtn.addEventListener("click", () => {
-      water.setAttribute("rotation", "-90 0 0");
-      waterHighlight.setAttribute("rotation", "-90 0 0");
+    window.addEventListener("unhandledrejection", function(event) {
+      log("PROMISE ERROR: " + event.reason);
     });
 
-    updateFloodHeight();
+    function checkPage() {
+      pageStatus.innerHTML = "<span class='ok'>ページは読み込まれています。</span>";
+
+      log("ページ読み込みOK");
+      log("URL: " + location.href);
+      log("protocol: " + location.protocol);
+      log("host: " + location.host);
+      log("userAgent: " + navigator.userAgent);
+
+      if (location.protocol === "https:") {
+        log("HTTPS: OK");
+      } else if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        log("localhost: OK");
+      } else {
+        log("HTTPS: NG。カメラはHTTPSでないと起動できない可能性が高いです。");
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        log("getUserMedia: OK");
+      } else {
+        log("getUserMedia: NG。このブラウザではカメラAPIが使えません。");
+      }
+
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: "camera" })
+          .then(function(result) {
+            log("camera permission state: " + result.state);
+          })
+          .catch(function(error) {
+            log("camera permission query failed: " + error.name);
+          });
+      } else {
+        log("Permissions API: 使用不可。ただしSafariでは普通です。");
+      }
+    }
+
+    async function startCamera() {
+      log("カメラ起動ボタンが押されました。");
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          log("カメラAPIがありません。");
+          alert("このブラウザはカメラAPIに対応していません。SafariまたはChromeで開いてください。");
+          return;
+        }
+
+        const constraints = {
+          video: {
+            facingMode: "environment"
+          },
+          audio: false
+        };
+
+        log("getUserMedia開始");
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        log("getUserMedia成功");
+
+        video.srcObject = stream;
+
+        video.onloadedmetadata = function() {
+          log("video metadata loaded");
+          video.play()
+            .then(function() {
+              log("video play OK");
+              pageStatus.innerHTML = "<span class='ok'>カメラ起動OKです。</span>";
+            })
+            .catch(function(error) {
+              log("video play error: " + error.name + " / " + error.message);
+            });
+        };
+
+      } catch (error) {
+        log("カメラ起動失敗: " + error.name + " / " + error.message);
+
+        let message = "カメラ起動に失敗しました。";
+
+        if (error.name === "NotAllowedError") {
+          message = "カメラが許可されていません。ブラウザ設定でカメラ許可を確認してください。";
+        }
+
+        if (error.name === "NotFoundError") {
+          message = "カメラが見つかりません。別の端末またはブラウザで確認してください。";
+        }
+
+        if (error.name === "NotReadableError") {
+          message = "他のアプリがカメラを使用中の可能性があります。カメラアプリ等を閉じてください。";
+        }
+
+        pageStatus.innerHTML = "<span class='ng'>" + message + "</span>";
+        alert(message + "\n\n" + error.name + "\n" + error.message);
+      }
+    }
+
+    function updateWaterHeight() {
+      const h = parseFloat(heightSlider.value);
+      heightText.textContent = h.toFixed(1) + "m";
+
+      const percent = Math.min(95, Math.max(0, h / 5 * 95));
+      waterLayer.style.height = percent + "%";
+    }
+
+    cameraButton.addEventListener("click", startCamera);
+    heightSlider.addEventListener("input", updateWaterHeight);
+
+    checkPage();
+    updateWaterHeight();
   </script>
 </body>
 </html>
